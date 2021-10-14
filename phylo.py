@@ -6,9 +6,6 @@ import math
 
 tree = Phylo.read(StringIO("(A:0.1,B:0.2,E(C:0.3,D:0.4):0.5)F"), "newick");
 
-
-#Phylo.draw_ascii(tree)
-
 inner_nodes = tree.get_nonterminals()# gets internal nodes
 leaf_nodes = tree.get_terminals()# gets leaf nodes
 
