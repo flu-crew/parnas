@@ -43,183 +43,29 @@ def getNodeDict(node,treem):
     retlist = sortAcc1(retlist, treem) ### sends list to sort according to the paper
     return retlist
 
-def sortAcc1(list,treem):#### sort according to condition in paper
-    for i in range(len(list)):
-        if list[i - 1][1] == list[i][1]:  ##checks for equidistant vertices vk and vm where vk appears before vm
-            if treem.common_ancestor(list[i - 1][0],list[0][0]) == list[0][0]:###check if vk is in subtree induced by vj
-                if treem.common_ancestor(list[i][0],list[0][0]) == list[0][0]:###check if vm is in subtree induced by vj
-                    if treem.common_ancestor(list[i-1][0],list[i][0]) == list[i][0]:##IF vm is the parent of vk
+def sortAcc1(nodelist,treem):#### sort according to condition in paper
+    for i in range(len(nodelist)):
+        if nodelist[i - 1][1] == nodelist[i][1]:  ##checks for equidistant vertices vk and vm where vk appears before vm
+            if treem.common_ancestor(nodelist[i - 1][0],nodelist[0][0]) == nodelist[0][0]:###check if vk is in subtree induced by vj
+                if treem.common_ancestor(nodelist[i][0],nodelist[0][0]) == nodelist[0][0]:###check if vm is in subtree induced by vj
+                    if treem.common_ancestor(nodelist[i-1][0],nodelist[i][0]) == nodelist[i][0]:##IF vm is the parent of vk
                         # then switch postion of vk and vm
-                      temp = list[i]
-                      list[i] = list[i - 1]
-                      list[i - 1] = temp
+                      temp = nodelist[i]
+                      nodelist[i] = nodelist[i - 1]
+                      nodelist[i - 1] = temp
 
-        if treem.common_ancestor(list[i][0], list[0][0]) == list[0][0]:  ###check if vm is in subtree induced by vj
-            if treem.common_ancestor(list[i-1][0], list[0][0]) != list[0][0]:  ### if vk is in not in induced by vj
+        if treem.common_ancestor(nodelist[i][0], nodelist[0][0]) == nodelist[0][0]:  ###check if vm is in subtree induced by vj
+            if treem.common_ancestor(nodelist[i-1][0], nodelist[0][0]) != nodelist[0][0]:  ### if vk is in not in induced by vj
                 # then switch postion of vk and vm
-                    temp = list[i]
-                    list[i] = list[i - 1]
-                    list[i - 1] = temp
+                    temp = nodelist[i]
+                    nodelist[i] = nodelist[i - 1]
+                    nodelist[i - 1] = temp
 
-    return list
+    return nodelist
 
 
 Dl= getNodeDict("C",checktree)
 print(Dl)
-"""
-def sortAcc(list,treem):### sorts list according to the paper
-    for i in range(len(list)):
-        if list[i - 1][1] == list[i][1]:##checks for equidistant vertices vk and vm where vk appears before vm
-          treem1 =treem.from_clade(list[0][0])#gets the subtree rooted at the vertex rj
-         # print("cehcking if", list[i - 1][0] ,"is in tree")
-         # print(treem1)
-         # print(treem1.is_parent_of("E"))
-         # print(treem1.is_parent_of("A"))
-          if treem1.is_parent_of(list[i - 1][0]):#### check if vk appears in subtree at rj
-
-              if treem1.is_parent_of(list[i][0]):### check if vm appears in subtree at rj and if it does then
-                  pathl = treem.trace(list[0][0], list[i - 1][0])####  get vertices in path from rj to vk
-                  checkl = []
-                  del pathl[0]
-                  del pathl[len(pathl) - 1]
-                  for x in pathl:
-                      checkl.append(x.name)
-                      ##check for parent constraint
-                      ##### if vm is in path to vk , it means vm precedes vk thus vm should be placed earlier in the list
-                      if list[i][0] in checkl:
-                          temp = list[i]
-                          list[i] = list[i - 1]
-                          list[i - 1] = temp
-
-          if treem1.is_parent_of(list[i][0]):####if vm appears in subtree rooted at rj
-              if treem1.is_parent_of(list[i-1][0]) == False:####if vk does not appear in subtree of rj
-                  ### then vm should appear before vk
-                  temp = list[i]
-                  list[i] = list[i - 1]
-                  list[i - 1] = temp
-
-    return list
-"""
-
-"""
-bl= getNodeDict("E",checktree)
-for i in range(len(bl)):
-    print(bl[i])
-"""
-
-
-
-
-
-
-
-
-
-"""
-      ### now check if equidistant vertex belongs to
-          treem1_all= getAllNodes(treem1)
-          pathl = treem.trace(list[0][0], list[i - 1][0])  ####get vertices in path from original node to the node that has equal dist
-        ### will turn this in mthod that takes nide as well
-        checkl = []
-        del pathl[0]
-        del pathl[len(pathl) - 1]
-         ### check if node vi is in the path to the node vk , where both vi and vk are eqidistant from node r
-        for x in pathl:
-            checkl.append(x.name)
-            ##check for parent constraint
-            ##### if vi is in path to vk , it means vi precedes vk thus v1 should be placed earlier in the list
-            if list[i][0] in checkl:
-                temp = list[i][0]
-                list[i][0] = list[i - 1][0]
-                list[i - 1][0] = temp
-"""
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-"""
-Dl= getNodeDict("E",checktree)
-print(Dl)
-### checking the constraints
-for i in range(len(Dl)):
-    if Dl[i-1][1] == Dl[i][1]:
-        pathl = treem.trace("E", Dl[i - 1][0])  ####get vertices in path from original node to the node that has equal dist
-        ### will turn this in mthod that takes nide as well
-        checkl = []
-        del pathl[0]
-        del pathl[len(pathl) - 1]
-       ### check if node vi is in the path to the node vk , where both vi and vk are eqidistant from node r
-        for x in pathl:
-            checkl.append(x.name)
-##### if vi is in path to vk , it means vi precedes vk thus v1 should be placed earlier in the list
-        if Dl[i][0] in checkl:
-            temp = Dl[i][0]
-            Dl[i][0] = Dl[i - 1][0]
-            Dl[i - 1][0] = temp
-
-           #print ("checking constraints as",Dl[i-1][0],"equals", Dl[i][0] )
-
-"""
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-"""
-(ii) If vk and vm are two distinct nodes in Vj, and
-
-Vm is a descendant of vk, then the element of Lj rep-
-resenting vk will precede the one representing v,,. In
-
-particular, vj corresponds to r).
-"""
-
-
-
-"""
-def G(node,n,closest_distance):
-    ##base cases
-    if (n == 0):
-     return np.inf
-    elif (node.is_terminal() and n==1):
-     return getNodeCost(node)
-    ##need to do other cases
-"""
-
-
 
 def F(node,n,closest_distance):
     ##base cases
@@ -229,10 +75,6 @@ def F(node,n,closest_distance):
      return min(F(node,0,closest_distance), G(node,1,closest_distance))
     ##need to do other cases
 
-
-#jg;klfgj;oenk
-
-##################################################################################################
 """
 if __name__ == "__main__":
    # tree = get_tree(input_string="((A:2,B:3):4,(C:5,(D:7,E:1):7):11);")
@@ -260,44 +102,3 @@ if __name__ == "__main__":
     G[1] = np.full((nnodes, nnodes), 1)
 
 """
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
