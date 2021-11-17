@@ -57,5 +57,4 @@ if __name__ == '__main__':
     # TODO: implement handling of the other parameters.
 
     bio_tree = Phylo.read(StringIO(str(tree) + ';'), 'newick')  # convert the denropy tree to biopython tree.
-    tip_clusters = {}
-    representatives = find_n_medoids(tree, n, tip_clusters)
+    representatives, tip_clusters = find_n_medoids(tree, n)
