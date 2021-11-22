@@ -23,7 +23,7 @@ def distance_function(distance):
     """
     return distance
 
-def sortAcc1(nodelist,treem):#### sort according to condition in paper
+def resolveTies(nodelist,treem):#### sort according to condition in paper
     for i in range(len(nodelist)):
         if nodelist[i - 1][1] == nodelist[i][1]:  ##checks for equidistant vertices vk and vm where vk appears before vm
             if treem.common_ancestor(nodelist[i - 1][0],nodelist[0][0]) == nodelist[0][0]:###check if vk is in subtree induced by vj
