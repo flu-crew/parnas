@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 
 from Bio.Phylo import BaseTree
 
 
-def find_n_medoids(tree: BaseTree, n: int, max_dist=None) -> Tuple[List[str], Dict[str, str]]:
+def find_n_medoids(tree: BaseTree, n: int, max_dist=None) -> Tuple[List[str], float]:
     """
     Finds n medoids on a tree by a modification of Tamir's algorithm for p-median.
     If max_dist is specified, the method finds n representatives that cover
@@ -14,8 +14,7 @@ def find_n_medoids(tree: BaseTree, n: int, max_dist=None) -> Tuple[List[str], Di
     :param n: number of representatives to be chosen.
     :param max_dist: an optional parameter that specifies the maximum coverage distance by a single representative.
     :return: (1) a list of tip labels that have been chosen as representatives;
-             (2) a dictionary: for each tip label a label of a representative
-                 that 'covers' that tip.
+             (2) the minimal objective function value.
     """
 
     # TODO: Sanket and Sid implementation starts here

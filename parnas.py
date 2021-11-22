@@ -84,7 +84,6 @@ def color_by_clusters(tree: Tree, centers: List[str], radius=None):
 
     # Color the edges.
     for edge in tree.preorder_edge_iter():
-        assert isinstance(edge, Edge)
         # If the two ends of the edge are covered by the same center -- color it.
         if edge.head_node and edge.tail_node and\
                 edge.head_node.annotations.get_value('center') == edge.tail_node.annotations.get_value('center'):
@@ -164,7 +163,7 @@ if __name__ == '__main__':
         radius = None
 
     bio_tree = Phylo.read(StringIO(str(query_tree) + ';'), 'newick')  # convert the denropy tree to biopython tree.
-    # representatives, tip_clusters = find_n_medoids(bio_tree, n, max_dist=radius)  # TODO: enable once implemented.
+    # representatives, value = find_n_medoids(bio_tree, n, max_dist=radius)  # TODO: enable once implemented.
 
     # Choose random centers for testing.
     taxa = [taxon.label for taxon in query_tree.taxon_namespace]
