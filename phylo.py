@@ -14,7 +14,8 @@ import math
 
 
 checktree = Phylo.read(StringIO("ROOT(A(A1:0.5,A2:0.456):0.1,B:0.2,E(C:0.3,D(F:0.7,G:0.643):0.4):0.5)"), "newick");
-#print(checktree)
+
+print (checktree)
 
 
 def getAllNodes(treem): #simple function to get all nodes in a list
@@ -26,6 +27,11 @@ def getAllNodes(treem): #simple function to get all nodes in a list
     for x in leaf_nodes:
         all_nodes.append(x)
     return all_nodes
+
+x = getAllNodes(checktree)
+print (x)
+print(x[4].is_parent_of(x[0]))
+
 
 
 def setConstantCostDict(value,treem):# create a dictionary for costs and give all nodes a cost of 'value'

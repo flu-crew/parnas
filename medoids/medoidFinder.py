@@ -63,7 +63,7 @@ class MedoidFinder(object):
             self.r_lookup[i] = []
 
 
-            for j in self.tree.find_clades(lambda x:i.is_parent_of(x),order='postorder'):
+            for j in self.tree.find_clades(lambda x:i.is_parent_of(x),order='postorder'): ## is_parent_of checks ancestry and not just direct parent
               self.distance_lookup[i].append((j,calculate_distance(i, j, self.tree)))
               self.r_lookup[i].append((j, calculate_distance(i, j, self.tree)))
 
