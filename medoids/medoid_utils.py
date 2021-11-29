@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from typing import List
 from dendropy import Tree, Node
+from Bio.Phylo import BaseTree
 
 
 def annotate_with_closest_centers(tree: Tree, centers: List[str], radius=None):
@@ -11,6 +12,7 @@ def annotate_with_closest_centers(tree: Tree, centers: List[str], radius=None):
     :param centers: tip labels of the chosen representatives
     :param radius: optional: if provided, only the vertices within the radius are covered by a center.
     """
+
     def tree_traversal(node: Node, prev_node: Node, cur_dist: float, distances: dict):
         distances[node] = cur_dist
         neighbors = []
@@ -39,3 +41,21 @@ def annotate_with_closest_centers(tree: Tree, centers: List[str], radius=None):
             continue
         closest_center = dist_to_centers.index(min_dist)
         node.annotations.add_new('center', closest_center)
+
+
+def build_distance_functions(tree: BaseTree, radius=None, prior_centers=None, taxa_weights=None):
+    # TODO: implement handling of prior_centers.
+    distance_functions = {}
+    for node in tree.find_clades(order='preorder'):
+        if node.is_terminal():
+            weight = taxa_weights[node.name] if taxa_weights else 1  # default weight is 1.
+            if radius:
+                function = lambda dist: (0 if dist < radius else dist) * weight
+            else:
+                function = lambda dist: dist * weight
+        else:
+            function = lambda dist: 0  # non-terminal nodes do not contribute to the distance function.
+
+        distance_functions[node] = function
+
+    return distance_functions

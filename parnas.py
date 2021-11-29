@@ -15,7 +15,7 @@ import re
 import colorsys
 from random import shuffle
 
-from medoids import find_n_medoids, annotate_with_closest_centers
+from medoids import find_n_medoids, annotate_with_closest_centers, build_distance_functions
 
 
 # Computes the coverage radius (# of substitutions) that satisfies the similarity threshold.
@@ -162,7 +162,8 @@ if __name__ == '__main__':
         query_tree = tree
         radius = None
 
-    bio_tree = Phylo.read(StringIO(str(query_tree) + ';'), 'newick')  # convert the denropy tree to biopython tree.
+    bio_tree = Phylo.read(StringIO(str(query_tree) + ';'), 'newick')  # convert the denropy tree to a biopython tree.
+    dist_functions = build_distance_functions(bio_tree, radius=radius)
     # representatives, value = find_n_medoids(bio_tree, n, max_dist=radius)  # TODO: enable once implemented.
 
     # Choose random centers for testing.
