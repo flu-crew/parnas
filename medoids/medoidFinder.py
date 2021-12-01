@@ -135,6 +135,7 @@ class MedoidFinder(object):
             self.G[q,self.index_lookup[i],self.distance_lookup[i][j]] = node_distance
             medians = self.Gmedian_nodes[min_q1,self.index_lookup[n1],self.distance_lookup[n1][j]]
             medians = medians.union(self.Fmedian_nodes[min_q2,self.index_lookup[n2],self.distance_lookup[n2][j]])
+            medians = medians.union(set([j]));
             self.Gmedian_nodes[q,self.index_lookup[i],self.distance_lookup[i][j]] = medians
         else:
             self.G[q,self.index_lookup[i],self.distance_lookup[i][j]] = self.G[q,self.index_lookup[i],self.distance_lookup[i][j]-1]
@@ -163,6 +164,7 @@ class MedoidFinder(object):
             self.F[q,self.index_lookup[i],self.distance_lookup[i][j]] =  node_distance
             medians = self.Fmedian_nodes[min_q1, self.index_lookup[left], self.distance_lookup[left][j]]
             medians = medians.union(self.Fmedian_nodes[min_q2, self.index_lookup[right], self.distance_lookup[right][j]])
+            medians = medians.union(set([j]))
             self.Fmedian_nodes[q,self.index_lookup[i],self.distance_lookup[i][j]] = medians
         else:
             self.F[q,self.index_lookup[i],self.distance_lookup[i][j]] = self.G[q,self.index_lookup[i],self.distance_lookup[i][j]]
