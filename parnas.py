@@ -71,31 +71,42 @@ def reweigh_tree_ancestral(tree_path: str, alignment_path: str, aa=False) -> Tre
     return reweighed_tree
 
 
-def color_by_clusters(tree: Tree, centers: List[str], radius=None):
+def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, radius=None):
     # Annotate the tree nodes with the closest centers.
-    annotate_with_closest_centers(tree, centers, radius=radius)
+    annotate_with_closest_centers(tree, centers, prior_centers=prior_centers, radius=radius)
 
-    # Choose n different colors:
-    n = len(centers)
+    # Choose n different colors. If prior_centers list is not empty, add an additional reserved color.
+    n = len(centers) if not prior_centers else len(centers) + 1
     hsv_colors = [(i / n, 0.7, 0.7) for i in range(n)]
     rgb_colors = [colorsys.hsv_to_rgb(*hsv) for hsv in hsv_colors]
     rgb_colors = [[round(255 * color[i]) for i in range(len(color))] for color in rgb_colors]
     hex_colors = ['#%02x%02x%02x' % (color[0], color[1], color[2]) for color in rgb_colors]
+    if prior_centers:
+        prior_color = hex_colors[0]  # Reserve the first color for prior centers.
+        hex_colors = hex_colors[1:]
 
     # Color the edges.
     for edge in tree.preorder_edge_iter():
         # If the two ends of the edge are covered by the same center -- color it.
         if edge.head_node and edge.tail_node and\
                 edge.head_node.annotations.get_value('center') == edge.tail_node.annotations.get_value('center'):
-            center_ind = edge.head_node.annotations.get_value('center')
-            color = hex_colors[center_ind]
-            edge.head_node.annotations.add_new('!color', color)
+            if edge.head_node.annotations.get_value('center') < 0:  # negative if it is covered by a prior center.
+                edge.head_node.annotations.add_new('!color', prior_color)  # use the reserved color.
+            else:
+                center_ind = edge.head_node.annotations.get_value('center')
+                color = hex_colors[center_ind]
+                edge.head_node.annotations.add_new('!color', color)
 
     # Color the centers.
     for center_ind, center in enumerate(centers):
         taxon = tree.taxon_namespace.get_taxon(center)
         color = hex_colors[center_ind]
         taxon.annotations.add_new('!color', color)
+
+    # Color prior centers if applicable.
+    for prior_center in prior_centers:
+        taxon = tree.taxon_namespace.get_taxon(prior_center)
+        taxon.annotations.add_new('!color', prior_color)
 
 
 if __name__ == '__main__':
@@ -107,6 +118,11 @@ if __name__ == '__main__':
     parser.add_argument('-n', type=int, action='store', dest='samples',
                         help='number of samples (representatives) to be chosen.\n' +
                              'This argument is required unless the --cover option is specified', required=False)
+    parser.add_argument('--prior-regex', type=str, action='store', dest='prior_regex',
+                        help='indicate the previous centers (if any) with a regex. '
+                             'The regex should match the full taxon name.\n'
+                             'PARNAS will then select centers that represent diversity'
+                             'not covered by the previous centers.', required=False)
     parser.add_argument('--threshold', type=float, action='store', dest='percent',
                         help='sequences similarity threshold: the algorithm will choose best representatives that cover as much\n' +
                              'diversity as possible within the given similarity threshold.' +
@@ -119,9 +135,9 @@ if __name__ == '__main__':
                         help="choose the best representatives (smallest number) that cover all the tips within the specified threshold.\n" +
                         "If specified, the --threshold argument must be specified as well",
                         required=False)
-    parser.add_argument('--prior', metavar='TAXON', type=str, nargs='+',
-                        help='space-separated list of taxa that have been previously chosen as centers.\n' +
-                             'The algorithm will choose new representatives that cover the "new" diversity in the tree')
+    # parser.add_argument('--prior', metavar='TAXON', type=str, nargs='+',
+    #                     help='space-separated list of taxa that have been previously chosen as centers.\n' +
+    #                          'The algorithm will choose new representatives that cover the "new" diversity in the tree')
     args = parser.parse_args()
 
     # Validate the tree.
@@ -139,6 +155,19 @@ if __name__ == '__main__':
     n = args.samples
     if n < 1 or n >= len(tree.taxon_namespace):
         parser.error('n should be at least 1 and smaller than the number of taxa in the tree.')
+
+    # Handle --prior-regex.
+    prior_centers = None
+    if args.prior_regex:
+        prior_regex = args.prior_regex
+        prior_centers = []
+        print('Prior centers that match the regex:')
+        for taxon in tree.taxon_namespace:
+            if re.match(prior_regex, taxon.label):
+                prior_centers.append(taxon.label)
+                print('\t%s' % taxon.label)
+        if not prior_centers:
+            print('\tNone.')
 
     # Validate threshold-related parameters and re-weigh the tree
     if args.percent:
@@ -172,6 +201,5 @@ if __name__ == '__main__':
     rnd_representatives = taxa[:n]
     print(rnd_representatives)
 
-    color_by_clusters(query_tree, rnd_representatives, radius=radius)
+    color_by_clusters(query_tree, rnd_representatives, prior_centers=prior_centers, radius=radius)
     query_tree.write(path='test.colored.tre', schema='nexus')
-
