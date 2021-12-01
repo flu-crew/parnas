@@ -2,10 +2,10 @@ from input import get_Tree_Phylo
 import numpy as np
 import math
 
+
 def getTreeNodes(tree):
-    nodes = tree.get_nonterminals()
-    nodes.extend(tree.get_terminals())
-    return nodes
+    pnodes = tree.find_clades(order='preorder')
+    return list(pnodes)
 
 def cost_function():
     """ Returns the setup cost c_j  for a node
