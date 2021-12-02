@@ -71,19 +71,13 @@ class MedoidFinder(object):
               self.distance_lookup[i].append((j,calculate_distance(i, j, self.tree)))
               self.r_lookup[i].append((j, calculate_distance(i, j, self.tree)))
 
-            """
-
-            for j in post_order_traversal:   # prev method- naively
-                self.distance_lookup[i].append((j,calculate_distance(i, j, self.tree)))
-                self.r_lookup[i].append((j, calculate_distance(i, j, self.tree)))
-            """
             self.distance_lookup[i].sort(key=lambda r: r[1])
             self.r_lookup[i].sort(key=lambda r: r[1])
             self.distance_lookup[i] = dict([(i[0], j) for j, i in enumerate(self.distance_lookup[i])])
             self.r_lookup[i] = dict(self.r_lookup[i])
 
     def initialize_G_and_F(self,i):
-        self.G[1,self.index_lookup[i]] = np.full((self.nnodes),1)
+        self.G[1,self.index_lookup[i]] = np.full((self.nnodes),0)
         self.Gmedian_nodes[1,self.index_lookup[i]] = np.full((self.nnodes),set([i]))
         for j in self.tree.find_clades(lambda x: not i.is_parent_of(x)):
             self.F[0, self.index_lookup[i], self.distance_lookup[i][j]] = distance_function(calculate_distance(i, j, self.tree))
@@ -121,15 +115,14 @@ class MedoidFinder(object):
         mindist = np.inf
         min_q1 = 0
         min_q2 = 0
-        for q1 in range(1,n1_size + 1):
-            for q2 in range(0, n2_size + 1):
-                if q1+q2 == q:
-                    dist = self.G[q1, self.index_lookup[n1], self.distance_lookup[n1][j]] + \
-                            self.F[q2, self.index_lookup[n2], self.distance_lookup[n2][j]]
-                    if (mindist > dist):
-                        mindist = dist
-                        min_q1 = q1
-                        min_q2 = q2
+        for q1 in range(max(1,q-n2_size),min(n1_size + 1,q+1)):
+            q2 = q - q1
+            dist = self.G[q1, self.index_lookup[n1], self.distance_lookup[n1][j]] + \
+                    self.F[q2, self.index_lookup[n2], self.distance_lookup[n2][j]]
+            if (mindist > dist):
+                mindist = dist
+                min_q1 = q1
+                min_q2 = q2
         node_distance = distance_function(self.r_lookup[i][j]) + mindist
         if(self.G[q, self.index_lookup[i],self.distance_lookup[i][j]-1] > node_distance):
             self.G[q,self.index_lookup[i],self.distance_lookup[i][j]] = node_distance
@@ -148,14 +141,13 @@ class MedoidFinder(object):
         mindist = np.inf
         min_q1 = 0
         min_q2 = 0
-        for q1 in range(0, left_size + 1):
-            for q2 in range(0, right_size + 1):
-                if q1 + q2 == q:
-                    dist = self.F[q1, self.index_lookup[left], self.distance_lookup[left][j]] + self.F[q2, self.index_lookup[right], self.distance_lookup[right][j]]
-                    if (mindist > dist):
-                        mindist = dist
-                        min_q1 = q1
-                        min_q2 = q2
+        for q1 in range(max(1,q-right_size),min(left_size + 1,q+1)):
+            q2 = q - q1
+            dist = self.F[q1, self.index_lookup[left], self.distance_lookup[left][j]] + self.F[q2, self.index_lookup[right], self.distance_lookup[right][j]]
+            if (mindist > dist):
+                mindist = dist
+                min_q1 = q1
+                min_q2 = q2
         self.F[q, self.index_lookup[i], self.distance_lookup[i][j]] = min(
             self.G[q, self.index_lookup[i], self.distance_lookup[i][j]],
             distance_function(self.r_lookup[i][j]) + mindist)
