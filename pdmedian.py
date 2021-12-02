@@ -54,7 +54,7 @@ def calculate_distance(u,v,tree):
     return tree.distance(u,v)
 
 if __name__ == "__main__":
-    tree=  get_Tree_Phylo(input_string="((F:2,E:1):6,D:7)")
+    tree=  get_Tree_Phylo(input_string="((F:3,E:8):9,D:8)")
     p = min(2,tree.count_terminals())
     nodes = getTreeNodes(tree) 
     nnodes = len(nodes)
@@ -67,7 +67,6 @@ if __name__ == "__main__":
         distance_lookup[i] = []
         r_lookup[i] = []
         for j in post_order_nodes:
-            ## TODO sort this list according to the algorithm given in the book
             distance_lookup[i].append((j,calculate_distance(i,j,tree)))
             r_lookup[i].append((j,calculate_distance(i,j,tree)))
         distance_lookup[i].sort(key=lambda r:r[1])
