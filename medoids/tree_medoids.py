@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
-<<<<<<< HEAD
 from io import StringIO
 from typing import List
 import numpy as np
 from Bio import Phylo
-=======
 from typing import List, Tuple, Dict
->>>>>>> develop
 
 from Bio.Phylo import BaseTree
 
@@ -35,4 +32,4 @@ if __name__ == "__main__":
    tree = get_Tree_Phylo(input_string="((A:2,B:3):4,(C:5,(D:7,E:1):7):11);")
    #tree = get_Tree_Phylo(input_string="((A:23,B:27):47,(C:35,(D:76,E:18):28):31);")
 
-   print(find_n_medoids(tree,3))
+   print(find_n_medoids(tree,3,None))

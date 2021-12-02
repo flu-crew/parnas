@@ -48,7 +48,7 @@ class MedoidFinder(object):
                 for q in range(self.n_c+1):
                     for j in self.distance_lookup[i]:
                         self.computeF(q,i,j)
-                        if i > 0:
+                        if q > 0:
                             self.computeG(q,i,j)
             
         min_index = np.argmin(self.G[self.n_c,0])
