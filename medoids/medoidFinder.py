@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
-from Bio import Phylo
 import numpy as np
-import math
 
 from helper_methods import cost_function
 from helper_methods import distance_function
-from helper_methods import resolveTies
 from helper_methods import calculate_distance
 from helper_methods import getTreeNodes
 
@@ -47,10 +44,11 @@ class MedoidFinder(object):
             if i.is_terminal():
                 self.initialize_G_and_F(i)
             else:
-                for q in range(1,self.n_c+1):
+                for q in range(self.n_c+1):
                     for j in self.distance_lookup[i]:
-                        self.computeG(q,i,j)
                         self.computeF(q,i,j)
+                        if q > 0:
+                            self.computeG(q,i,j)
             
         min_index = np.argmin(self.G[self.n_c,0])
         return self.G[self.n_c,0,min_index],self.Gmedian_nodes[self.n_c,0,min_index]
