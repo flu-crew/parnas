@@ -2,8 +2,8 @@
 from typing import List, Tuple, Dict
 from Bio.Phylo import BaseTree
 
-from input import get_Tree_Phylo
-from pmedian_finder import PMedianFinder
+from .input import get_Tree_Phylo
+from .pmedian_finder import PMedianFinder
 
 
 def find_n_medoids(tree: BaseTree, n: int, distance_functions: Dict, max_dist=None) -> Tuple[List[str], float]:
@@ -20,8 +20,9 @@ def find_n_medoids(tree: BaseTree, n: int, distance_functions: Dict, max_dist=No
              (2) the minimal objective function value.
     """
     medoidFinder = PMedianFinder(tree)
-    medoids = medoidFinder.find_medoids(n)
-    return medoids[1]
+    objective, medoids = medoidFinder.find_medoids(n, distance_functions)
+
+    return medoids, objective
 
 
 if __name__ == "__main__":
