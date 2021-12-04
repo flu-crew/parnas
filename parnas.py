@@ -127,6 +127,11 @@ if __name__ == '__main__':
                              'The regex should match the full taxon name.\n'
                              'PARNAS will then select centers that represent diversity'
                              'not covered by the previous centers.', required=False)
+    # taxa_handler = parser.add_argument_group('Excluding taxa')
+    # taxa_handler.add_argument('--exclude', type=str, action='store', dest='exclude_regex',
+    #                           help='The taxa matching this regex will be excluded from consideration by the algorithm.'
+    #                                'PARNAS will treat these taxa as not present on the tree.')
+
     # parser.add_argument('--threshold', type=float, action='store', dest='percent',
     #                     help='sequences similarity threshold: the algorithm will choose best representatives that cover as much\n' +
     #                          'diversity as possible within the given similarity threshold.' +
