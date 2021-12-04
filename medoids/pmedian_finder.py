@@ -15,7 +15,6 @@ class PMedianFinder(object):
 
     def __init__(self, tree: BaseTree.Tree):
         self.cost_function = cost_function
-        # self.distance_function = distance_function
 
         self.nodes = get_tree_nodes(tree)
         self.nnodes = len(self.nodes)
@@ -41,7 +40,7 @@ class PMedianFinder(object):
         self.Gmedian_nodes = np.full((self.n_c + 1, self.nnodes, self.nnodes), set())
         self.Fmedian_nodes = np.full((self.n_c + 1, self.nnodes, self.nnodes), set())
         self._initialize_lookups()
-        self.G[0] = np.full((self.nnodes, self.nnodes), np.inf)
+        # self.G[0] = np.full((self.nnodes, self.nnodes), np.inf)
 
         for node in post_order_nodes:
             if node.is_terminal():
@@ -49,8 +48,7 @@ class PMedianFinder(object):
             else:
                 for q in range(self.n_c + 1):
                     for radius_node in self.node_lists[self.index_lookup[node]]:
-                        if q > 0:
-                            self._computeG(q, node, radius_node)
+                        self._computeG(q, node, radius_node)
                         self._computeF(q, node, radius_node)
 
         min_index = np.argmin(self.G[self.n_c, 0])
@@ -83,6 +81,7 @@ class PMedianFinder(object):
             self.r_lookup[node1] = dict(node_dist_pairs)
 
     def _initialize_G_and_F(self, node: Clade):
+        self.G[0, self.index_lookup[node]] = np.full((self.nnodes), self.distance_functions[node](np.inf))
         self.G[1, self.index_lookup[node]] = np.full((self.nnodes), 0)
         self.Gmedian_nodes[1, self.index_lookup[node]] = np.full((self.nnodes), {node})
         for radius_node in self.tree.find_clades(lambda x: not node.is_parent_of(x)):
@@ -103,6 +102,12 @@ class PMedianFinder(object):
                     1, self.index_lookup[node], self.distance_lookup[node][radius_node]]
 
     def _computeG(self, q: int, node: Clade, radius_node: Clade):
+        if q == 0:
+            left, right = node.clades
+            self.G[q, self.index_lookup[node], self.distance_lookup[node][radius_node]] =\
+                self.G[q, self.index_lookup[left], self.distance_lookup[left][radius_node]] +\
+                self.G[q, self.index_lookup[right], self.distance_lookup[right][radius_node]]
+            return
         # for q in range(1, self.n_c + 1):
         #     for radius_node in self.distance_lookup[node]:
         if node == radius_node:
@@ -116,8 +121,6 @@ class PMedianFinder(object):
                 q, self.index_lookup[node], self.distance_lookup[node][radius_node] - 1]
         else:
             left, right = node.clades
-            left_size = len(list(left.find_elements()))
-            right_size = len(list(right.find_elements()))
             if left.is_parent_of(radius_node):
                 self._computeG_subtree(q, node, radius_node, left, right)
             else:
@@ -152,7 +155,7 @@ class PMedianFinder(object):
 
     def _computeF(self, q: int, node: Clade, radius_node: Clade):
         left, right = node.clades
-        left_size = len(list(left.find_elements()))
+        left_size = len(list(left.find_elements()))  # TODO: Precompute subtree sizes.
         right_size = len(list(right.find_elements()))
         mindist = np.inf
         min_q1 = 0

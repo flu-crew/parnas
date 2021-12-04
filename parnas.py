@@ -118,23 +118,27 @@ if __name__ == '__main__':
     parser.add_argument('-n', type=int, action='store', dest='samples',
                         help='number of samples (representatives) to be chosen.\n' +
                              'This argument is required unless the --cover option is specified', required=False)
+    parser.add_argument('--color', type=str, action='store', dest='out_path',
+                        help='PARNAS will save a colored tree, where the chosen representatives are highlighted '
+                        'and the tree is color-partitioned respective to the representatives.\n'
+                        'If prior centers are specified, they (and the subtrees they represent) will be colored red.')
     parser.add_argument('--prior-regex', type=str, action='store', dest='prior_regex',
                         help='indicate the previous centers (if any) with a regex. '
                              'The regex should match the full taxon name.\n'
                              'PARNAS will then select centers that represent diversity'
                              'not covered by the previous centers.', required=False)
-    parser.add_argument('--threshold', type=float, action='store', dest='percent',
-                        help='sequences similarity threshold: the algorithm will choose best representatives that cover as much\n' +
-                             'diversity as possible within the given similarity threshold.' +
-                             '--nt or --aa must be specified with this option', required=False)
-    parser.add_argument('--nt', type=str, action='store', dest='nt_alignment',
-                        help='path to nucleotide sequences associated with the tree tips', required=False)
-    parser.add_argument('--aa', type=str, action='store', dest='aa_alignment',
-                        help='path to amino acid sequences associated with the tree tips', required=False)
-    parser.add_argument('--cover', action='store_true',
-                        help="choose the best representatives (smallest number) that cover all the tips within the specified threshold.\n" +
-                        "If specified, the --threshold argument must be specified as well",
-                        required=False)
+    # parser.add_argument('--threshold', type=float, action='store', dest='percent',
+    #                     help='sequences similarity threshold: the algorithm will choose best representatives that cover as much\n' +
+    #                          'diversity as possible within the given similarity threshold.' +
+    #                          '--nt or --aa must be specified with this option', required=False)
+    # parser.add_argument('--nt', type=str, action='store', dest='nt_alignment',
+    #                     help='path to nucleotide sequences associated with the tree tips', required=False)
+    # parser.add_argument('--aa', type=str, action='store', dest='aa_alignment',
+    #                     help='path to amino acid sequences associated with the tree tips', required=False)
+    # parser.add_argument('--cover', action='store_true',
+    #                     help="choose the best representatives (smallest number) that cover all the tips within the specified threshold.\n" +
+    #                     "If specified, the --threshold argument must be specified as well",
+    #                     required=False)
     # parser.add_argument('--prior', metavar='TAXON', type=str, nargs='+',
     #                     help='space-separated list of taxa that have been previously chosen as centers.\n' +
     #                          'The algorithm will choose new representatives that cover the "new" diversity in the tree')
@@ -192,14 +196,23 @@ if __name__ == '__main__':
         radius = None
 
     bio_tree = Phylo.read(StringIO(str(query_tree) + ';'), 'newick')  # convert the denropy tree to a biopython tree.
-    dist_functions = build_distance_functions(bio_tree, radius=radius)
-    # representatives, value = find_n_medoids(bio_tree, n, max_dist=radius)  # TODO: enable once implemented.
+    dist_functions = build_distance_functions(bio_tree, prior_centers=prior_centers, radius=radius)
+    representatives, value = find_n_medoids(bio_tree, n, dist_functions, max_dist=radius)
+
+    print('Chosen representatives:')
+    for rep in representatives:
+        print('\t%s' % rep)
 
     # Choose random centers for testing.
-    taxa = [taxon.label for taxon in query_tree.taxon_namespace]
-    shuffle(taxa)
-    rnd_representatives = taxa[:n]
-    print(rnd_representatives)
+    # taxa = [taxon.label for taxon in query_tree.taxon_namespace]
+    # shuffle(taxa)
+    # rnd_representatives = taxa[:n]
+    # print(rnd_representatives)
 
-    color_by_clusters(query_tree, rnd_representatives, prior_centers=prior_centers, radius=radius)
-    query_tree.write(path='test.colored.tre', schema='nexus')
+    if args.out_path:
+        color_by_clusters(query_tree, representatives, prior_centers=prior_centers, radius=radius)
+        try:
+            query_tree.write(path=args.out_path, schema='nexus')
+            print('Colored tree was saved to "%s".' % args.out_path)
+        except:
+            parser.error('Cant write to the specified path "%s".' % args.out_path)

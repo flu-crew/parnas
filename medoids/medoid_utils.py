@@ -78,7 +78,10 @@ def build_distance_functions(tree: BaseTree.Tree, radius=None, prior_centers=Non
             weight = taxa_weights[node.name] if taxa_weights else 1  # default weight is 1.
             max_dist = closest_prior_dist[node.name] if prior_centers else math.inf
             min_dist = radius if radius else 0
-            function = lambda dist: (0 if dist <= min_dist else (dist if dist <= max_dist else max_dist)) * weight
+            def dist_func(min_d, max_d, w):
+                return lambda dist: (0 if dist <= min_d else (dist if dist <= max_d else max_d)) * w
+            function = dist_func(min_dist, max_dist, weight)
+            # function = lambda dist: (0 if dist <= min_dist else (dist if dist <= max_dist else max_dist)) * weight
             # if radius:
             #     function = lambda dist: (0 if dist < radius else dist) * weight
             # else:
