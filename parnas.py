@@ -87,6 +87,8 @@ def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, radius
 
     # Color the edges.
     for edge in tree.preorder_edge_iter():
+        if edge.head_node:
+            edge.head_node.annotations.drop(name='!color')  # remove any previous color scheme.
         # If the two ends of the edge are covered by the same center -- color it.
         if edge.head_node and edge.tail_node and\
                 edge.head_node.annotations.get_value('center') == edge.tail_node.annotations.get_value('center'):
@@ -97,6 +99,17 @@ def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, radius
                 color = hex_colors[center_ind]
                 edge.head_node.annotations.add_new('!color', color)
 
+    # Drop previous color annotations and color 'regular' taxa black (to avoid color mixing in FigTree).
+    black = '#000000'
+    special_taxa = centers
+    if prior_centers:
+        special_taxa = special_taxa + prior_centers
+    special_taxa = set(special_taxa)
+    for taxon in tree.taxon_namespace:
+        taxon.annotations.drop(name='!color')  # Remove any previous colors if any.
+        if not taxon.label in special_taxa:
+            taxon.annotations.add_new('!color', black)
+
     # Color the centers.
     for center_ind, center in enumerate(centers):
         taxon = tree.taxon_namespace.get_taxon(center)
@@ -104,9 +117,10 @@ def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, radius
         taxon.annotations.add_new('!color', color)
 
     # Color prior centers if applicable.
-    for prior_center in prior_centers:
-        taxon = tree.taxon_namespace.get_taxon(prior_center)
-        taxon.annotations.add_new('!color', prior_color)
+    if prior_centers:
+        for prior_center in prior_centers:
+            taxon = tree.taxon_namespace.get_taxon(prior_center)
+            taxon.annotations.add_new('!color', prior_color)
 
 
 if __name__ == '__main__':
@@ -117,15 +131,15 @@ if __name__ == '__main__':
                         help='path to the input tree in newick or nexus format', required=True)
     parser.add_argument('-n', type=int, action='store', dest='samples',
                         help='number of samples (representatives) to be chosen.\n' +
-                             'This argument is required unless the --cover option is specified', required=False)
+                             'This argument is required unless the --cover option is specified', required=True)
     parser.add_argument('--color', type=str, action='store', dest='out_path',
                         help='PARNAS will save a colored tree, where the chosen representatives are highlighted '
                         'and the tree is color-partitioned respective to the representatives.\n'
                         'If prior centers are specified, they (and the subtrees they represent) will be colored red.')
     parser.add_argument('--prior-regex', type=str, action='store', dest='prior_regex',
                         help='indicate the previous centers (if any) with a regex. '
-                             'The regex should match the full taxon name.\n'
-                             'PARNAS will then select centers that represent diversity'
+                             'The regex should match a full taxon name.\n'
+                             'PARNAS will then select centers that represent diversity '
                              'not covered by the previous centers.', required=False)
     # taxa_handler = parser.add_argument_group('Excluding taxa')
     # taxa_handler.add_argument('--exclude', type=str, action='store', dest='exclude_regex',
@@ -178,27 +192,29 @@ if __name__ == '__main__':
         if not prior_centers:
             print('\tNone.')
 
+    query_tree = tree
+    radius = None
     # Validate threshold-related parameters and re-weigh the tree
-    if args.percent:
-        if args.percent <= 0 or args.percent >= 100:
-            parser.error('Invalid "--threshold %.3f" option. The threshold must be between 0 and 100 (exclusive)'
-                         % args.percent)
-        if args.nt_alignment and args.aa_alignment:
-            parser.error('Please specify EITHER the nucleotide or amino acid alignment - not both.')
-        if not (args.nt_alignment or args.aa_alignment):
-            parser.error('To use the --threshold parameter please specify a nucleotide' +
-                         'or amino acid alignment associated with the tree tips.')
-        alignment_path = args.nt_alignment if args.nt_alignment else args.aa_alignment
-        is_aa = args.aa_alignment is not None
-        try:
-            alignment = AlignIO.read(alignment_path, 'fasta')
-        except:
-            parser.error('Cannot read the specified FASTA alignment in "%s".' % alignment_path)
-        radius = threshold_to_substitutions(args.percent, alignment)
-        query_tree = reweigh_tree_ancestral(args.tree, alignment_path, is_aa)
-    else:
-        query_tree = tree
-        radius = None
+    # if args.percent:
+    #     if args.percent <= 0 or args.percent >= 100:
+    #         parser.error('Invalid "--threshold %.3f" option. The threshold must be between 0 and 100 (exclusive)'
+    #                      % args.percent)
+    #     if args.nt_alignment and args.aa_alignment:
+    #         parser.error('Please specify EITHER the nucleotide or amino acid alignment - not both.')
+    #     if not (args.nt_alignment or args.aa_alignment):
+    #         parser.error('To use the --threshold parameter please specify a nucleotide' +
+    #                      'or amino acid alignment associated with the tree tips.')
+    #     alignment_path = args.nt_alignment if args.nt_alignment else args.aa_alignment
+    #     is_aa = args.aa_alignment is not None
+    #     try:
+    #         alignment = AlignIO.read(alignment_path, 'fasta')
+    #     except:
+    #         parser.error('Cannot read the specified FASTA alignment in "%s".' % alignment_path)
+    #     radius = threshold_to_substitutions(args.percent, alignment)
+    #     query_tree = reweigh_tree_ancestral(args.tree, alignment_path, is_aa)
+    # else:
+    #     query_tree = tree
+    #     radius = None
 
     bio_tree = Phylo.read(StringIO(str(query_tree) + ';'), 'newick')  # convert the denropy tree to a biopython tree.
     dist_functions = build_distance_functions(bio_tree, prior_centers=prior_centers, radius=radius)
