@@ -51,10 +51,14 @@ class PMedianFinder(object):
                         self._computeG(q, node, radius_node)
                         self._computeF(q, node, radius_node)
 
-        min_index = np.argmin(self.G[self.n_c, 0])
-        obj_value = self.G[self.n_c, 0, min_index]
-        median_nodes = self.Gmedian_nodes[self.n_c, 0, min_index]
-        median_names = [node.name for node in median_nodes]
+        if self.G[self.n_c, 0, self.nnodes - 1] < self.G[0, 0, self.nnodes - 1]:
+            min_index = np.argmin(self.G[self.n_c, 0])
+            obj_value = self.G[self.n_c, 0, min_index]
+            median_nodes = self.Gmedian_nodes[self.n_c, 0, min_index]
+            median_names = [node.name for node in median_nodes]
+        else:
+            obj_value = self.G[0, 0, self.nnodes - 1]
+            median_names = []
         return obj_value, median_names
 
     def _initialize_lookups(self):

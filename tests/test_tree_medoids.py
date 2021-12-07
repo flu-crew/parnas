@@ -43,6 +43,15 @@ class TestTreeMedoids(unittest.TestCase):
         self.assertEqual(obj, 5)
         self.assertEqual(set(medoids), {'a', 'd'})
 
+    def test_zero_medoids_w_radius_and_prior(self):
+        tree = Phylo.read(StringIO("((a:1,(b:2.5,c:2.5):1):3,(d:0.5,(e:2.5,f:3.5):1):2)"), 'newick')
+        radius = 6  # everything is covered by a and f
+        prior = ['a', 'f']
+        distance_funcs = build_distance_functions(tree, radius=radius, prior_centers=prior)
+        medoids, obj = find_n_medoids(tree, 1, distance_functions=distance_funcs)
+        print(medoids)
+        self.assertEqual(obj, 0)
+
     def test_one_medoid_w_prior(self):
         tree = Phylo.read(StringIO("(((a:2,b:1):2,e:1):1,(c:1,d:2):1);"), 'newick')
         prior_centers = ['b']

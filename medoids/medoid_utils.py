@@ -20,7 +20,7 @@ def annotate_with_closest_centers(tree: Tree, centers: List[str], prior_centers=
 
     for node in tree.nodes():
         closest_center, dist = closest_centers[node]
-        if radius and dist >= radius:
+        if radius and dist > radius:
             continue
         closest_center = all_centers.index(closest_center)
         if closest_center >= len(centers):
@@ -67,7 +67,8 @@ def find_closest_centers(tree: Tree, centers: List[str]) -> Dict[Node, Tuple[str
 
 def build_distance_functions(tree: BaseTree.Tree, radius=None, prior_centers=None, taxa_weights=None):
     if prior_centers:
-        dendropy_tree = Tree.get(data=tree.format(fmt='newick'), schema='newick')  # convert to dendropy.
+        dendropy_tree = Tree.get(data=tree.format(fmt='newick'), schema='newick',
+                                 preserve_underscores=True)  # convert to dendropy.
         closest_centers = find_closest_centers(dendropy_tree, prior_centers)
         # For each leaf label stores the distance to the closest prior center:
         closest_prior_dist = dict([(leaf.taxon.label, closest_centers[leaf][1]) for leaf in dendropy_tree.leaf_nodes()])
@@ -80,7 +81,10 @@ def build_distance_functions(tree: BaseTree.Tree, radius=None, prior_centers=Non
             min_dist = radius if radius else 0
             def dist_func(min_d, max_d, w):
                 return lambda dist: (0 if dist <= min_d else (dist if dist <= max_d else max_d)) * w
-            function = dist_func(min_dist, max_dist, weight)
+            if max_dist <= min_dist:
+                function = lambda dist: 0
+            else:
+                function = dist_func(min_dist, max_dist, weight)
             # function = lambda dist: (0 if dist <= min_dist else (dist if dist <= max_dist else max_dist)) * weight
             # if radius:
             #     function = lambda dist: (0 if dist < radius else dist) * weight

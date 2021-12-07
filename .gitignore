@@ -1,6 +1,14 @@
-# Phylogenetic test files.
+# Phylogenetic/fasta test files.
 *.tre
 *.nexus
+*.aln
+*.fasta
+
+# TreeTime output
+treetime*
+
+# General
+*.pdf
 
 # Compiled Python bytecode
 *.py[cod]
