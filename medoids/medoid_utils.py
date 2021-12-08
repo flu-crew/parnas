@@ -96,3 +96,27 @@ def build_distance_functions(tree: BaseTree.Tree, radius=None, prior_centers=Non
         distance_functions[node] = function
 
     return distance_functions
+
+
+def binarize_tree(tree: Tree, edge_length=0):
+    """
+    Adds/removes nodes from the tree to make it fully binary (added edges will have length 'edge_length')
+    :param tree: Dendropy tree to be made bifurcating.
+    """
+
+    # First suppress unifurcations.
+    tree.suppress_unifurcations()
+
+    # Now binarize multifurcations.
+    for node in tree.postorder_node_iter():
+        assert isinstance(node, Node)
+        if node.child_nodes() and len(node.child_nodes()) > 2:
+            num_children = len(node.child_nodes())
+            children = node.child_nodes()
+            interim_node = node
+            # Creates a caterpillar structure with children on the left of the trunk:
+            for child_ind in range(len(children) - 2):
+                new_node = Node(edge_length=edge_length)
+                interim_node.set_child_nodes([children[child_ind], new_node])
+                interim_node = new_node
+            interim_node.set_child_nodes(children[num_children - 2:])

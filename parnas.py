@@ -18,7 +18,7 @@ from Bio.Align import MultipleSeqAlignment
 from dendropy import Tree
 
 from sequences import SequenceSimilarityMatrix
-from medoids import find_n_medoids, annotate_with_closest_centers, build_distance_functions
+from medoids import find_n_medoids, annotate_with_closest_centers, build_distance_functions, binarize_tree
 
 
 # Computes the coverage radius (# of substitutions) that satisfies the similarity threshold.
@@ -260,6 +260,9 @@ if __name__ == '__main__':
     if args.cover:
         if not args.percent:
             parser.error('To use --cover parameter, please specify --threshold option.')
+
+    # Binarize the query tree:
+    binarize_tree(query_tree, edge_length=0)
 
     bio_tree = Phylo.read(StringIO(str(query_tree) + ';'), 'newick')  # convert the denropy tree to a biopython tree.
     if not (bio_tree.is_bifurcating() and len(bio_tree.root.clades) == 2):
