@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 from typing import List, Tuple, Dict
-from Bio.Phylo import BaseTree
+from dendropy import Tree
 
 from .pmedian_finder import PMedianFinder
 
 
-def find_n_medoids(tree: BaseTree, n: int, distance_functions: Dict, max_dist=None) -> Tuple[List[str], float]:
+def find_n_medoids(tree: Tree, n: int, distance_functions: Dict, max_dist=None) -> Tuple[List[str], float]:
     """
     Finds n medoids on a tree by a modification of Tamir's algorithm for p-median.
     If max_dist is specified, the method finds n representatives that cover
     as much diversity (within max_dist) as possible.
 
-    :param tree: phylogenetic tree in the biopython format.
+    :param tree: phylogenetic tree in the dendropy format.
     :param n: number of representatives to be chosen.
     :param distance_functions: a map that links a node (Phylo.Clade) to the distance function of that node.
     :param max_dist: an optional parameter that specifies the maximum coverage distance by a single representative.

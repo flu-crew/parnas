@@ -1,8 +1,44 @@
 # -*- coding: utf-8 -*-
+from typing import Callable, Iterable, Optional, List
+from dendropy import Tree, Node
 
-def get_tree_nodes(tree):
-    pnodes = tree.find_clades(order='preorder')
-    return list(pnodes)
+
+def dfs_tree_traversal(node: Node, prev_node: Optional[Node], cur_dist: float, node_dist_pairs: List):
+    node_dist_pairs.append((node, cur_dist))
+    neighbors = []
+    if node.child_nodes():
+        neighbors += node.child_nodes()
+    if node.parent_node:
+        neighbors.append(node.parent_node)
+    for neighbor in neighbors:
+        if neighbor is not prev_node:
+            is_parent = node.parent_node is neighbor
+            edge_len = node.edge_length if is_parent else neighbor.edge_length
+            dfs_tree_traversal(neighbor, node, cur_dist + edge_len, node_dist_pairs)
+
+
+def filtered_preorder_iterator(tree: Tree, subtree_filter: Optional[Callable[[Node], bool]]) -> Iterable[Node]:
+    """
+    Preorder iterator that will avoid subtrees rooted at nodes, s.t. subtree_filter(node) is False.
+    """
+    stack = [tree.seed_node]
+    while stack:
+        node = stack.pop()
+        if subtree_filter is None or subtree_filter(node):
+            yield node
+            stack.extend(n for n in reversed(node._child_nodes))
+
+
+def filtered_postorder_iterator(tree: Tree, subtree_filter: Optional[Callable[[Node], bool]]) -> Iterable[Node]:
+    stack = [(tree.seed_node, False)]
+    while stack:
+        node, state = stack.pop()
+        if state:
+            if subtree_filter is None or subtree_filter(node):
+                yield node
+        elif subtree_filter(node):
+            stack.append((node, True))
+            stack.extend([(n, False) for n in reversed(node._child_nodes)])
 
 
 def cost_function():

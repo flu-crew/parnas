@@ -264,17 +264,17 @@ if __name__ == '__main__':
     # Binarize the query tree:
     binarize_tree(query_tree, edge_length=0)
 
-    bio_tree = Phylo.read(StringIO(str(query_tree) + ';'), 'newick')  # convert the denropy tree to a biopython tree.
-    if not (bio_tree.is_bifurcating() and len(bio_tree.root.clades) == 2):
-        parser.error('The input tree must be bifurcating!')
-    dist_functions = build_distance_functions(bio_tree, prior_centers=prior_centers, radius=radius)
+    # bio_tree = Phylo.read(StringIO(str(query_tree) + ';'), 'newick')  # convert the denropy tree to a biopython tree.
+    # if not (bio_tree.is_bifurcating() and len(bio_tree.root.clades) == 2):
+    #     parser.error('The input tree must be bifurcating!')
+    dist_functions = build_distance_functions(query_tree, prior_centers=prior_centers, radius=radius)
     print("Inferring best representatives.")
     if not args.cover:
-        representatives, value = find_n_medoids(bio_tree, n, dist_functions, max_dist=radius)
+        representatives, value = find_n_medoids(query_tree, n, dist_functions, max_dist=radius)
     else:
         opt_n = -1
         for n in range(1, len(query_tree.leaf_nodes()) + 1):
-            representatives, value = find_n_medoids(bio_tree, n, dist_functions, max_dist=radius)
+            representatives, value = find_n_medoids(query_tree, n, dist_functions, max_dist=radius)
             if value == 0:
                 opt_n = n
                 break

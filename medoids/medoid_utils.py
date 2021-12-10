@@ -65,19 +65,19 @@ def find_closest_centers(tree: Tree, centers: List[str]) -> Dict[Node, Tuple[str
     return center_map
 
 
-def build_distance_functions(tree: BaseTree.Tree, radius=None, prior_centers=None, taxa_weights=None):
+def build_distance_functions(tree: Tree, radius=None, prior_centers=None, taxa_weights=None):
     if prior_centers:
-        dendropy_tree = Tree.get(data=tree.format(fmt='newick'), schema='newick',
-                                 preserve_underscores=True)  # convert to dendropy.
-        closest_centers = find_closest_centers(dendropy_tree, prior_centers)
+        # dendropy_tree = Tree.get(data=tree.format(fmt='newick'), schema='newick',
+        #                          preserve_underscores=True)  # convert to dendropy.
+        closest_centers = find_closest_centers(tree, prior_centers)
         # For each leaf label stores the distance to the closest prior center:
-        closest_prior_dist = dict([(leaf.taxon.label, closest_centers[leaf][1]) for leaf in dendropy_tree.leaf_nodes()])
+        closest_prior_dist = dict([(leaf.taxon.label, closest_centers[leaf][1]) for leaf in tree.leaf_nodes()])
 
     distance_functions = {}
-    for node in tree.find_clades(order='preorder'):
-        if node.is_terminal():
-            weight = taxa_weights[node.name] if taxa_weights else 1  # default weight is 1.
-            max_dist = closest_prior_dist[node.name] if prior_centers else math.inf
+    for node in tree.preorder_node_iter():
+        if node.is_leaf():
+            weight = taxa_weights[node.taxon.label] if taxa_weights else 1  # default weight is 1.
+            max_dist = closest_prior_dist[node.taxon.label] if prior_centers else math.inf
             min_dist = radius if radius else 0
             def dist_func(min_d, max_d, w):
                 return lambda dist: (0 if dist <= min_d else (dist if dist <= max_d else max_d)) * w
