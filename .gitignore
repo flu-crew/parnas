@@ -9,6 +9,10 @@ treetime*
 
 # General
 *.pdf
+*.ppt
+*.pptx
+*.zip
+
 
 # Compiled Python bytecode
 *.py[cod]
