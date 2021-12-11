@@ -13,6 +13,7 @@ class TestTreeMedoids(unittest.TestCase):
         tree = Tree.get(data="(((a:2,b:1):2,e:1):1,(c:1,d:2):1);", schema='newick')
         distance_funcs = build_distance_functions(tree)
         medoids, obj = find_n_medoids(tree, 1, distance_funcs)
+        print(medoids, obj)
         self.assertEqual(len(medoids), 1)
         self.assertEqual(medoids[0], 'e')
         self.assertEqual(obj, 18)
