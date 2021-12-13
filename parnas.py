@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 from argparse import RawTextHelpFormatter
+from datetime import datetime
 from io import StringIO
 from math import floor
 from typing import List
@@ -294,6 +295,7 @@ if __name__ == '__main__':
 
     if args.out_path:
         color_by_clusters(query_tree, representatives, prior_centers=prior_centers, radius=radius)
+        print('\tFinished coloring', datetime.now().strftime("%H:%M:%S"))
         try:
             query_tree.write(path=args.out_path, schema='nexus')
             print('Colored tree was saved to "%s".' % args.out_path)
