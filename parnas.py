@@ -69,7 +69,7 @@ def reweigh_tree_ancestral(tree_path: str, alignment_path: str, aa=False) -> Tre
                         line = line.replace(mutations, upd_mutations)
                     dendropy_nexus.write(line)
         ancestral_tree = Tree.get(path=treetime_for_dendropy, schema='nexus', preserve_underscores=True)
-    except:
+    except Exception:
         print('Failed to infer an ancestral tree with TreeTime. '
               'Please see the TreeTime output log and consider inferring the ancestral states manually.')
         sys.exit(-1)
@@ -206,10 +206,10 @@ if __name__ == '__main__':
     tree = None
     try:
         tree = Tree.get(path=args.tree, schema='newick', preserve_underscores=True)
-    except:
+    except Exception:
         try:
             tree = Tree.get(path=args.tree, schema='nexus', preserve_underscores=True)
-        except:
+        except Exception:
             parser.error('Cannot read the specified tree file "%s". ' % args.tree +
                          'Make sure the tree is in the newick or nexus format.')
 
@@ -239,7 +239,7 @@ if __name__ == '__main__':
         is_aa = args.aa_alignment is not None
         try:
             alignment = list(AlignIO.read(alignment_path, 'fasta'))
-        except:
+        except Exception:
             parser.error('Cannot read the specified FASTA alignment in "%s".' % alignment_path)
         alignment_present = True
     else:
@@ -302,7 +302,7 @@ if __name__ == '__main__':
         try:
             query_tree.write(path=args.out_path, schema='nexus')
             print('Colored tree was saved to "%s".' % args.out_path)
-        except:
+        except Exception:
             parser.error('Cant write to the specified path "%s".' % args.out_path)
 
         # if args.nt_alignment:
