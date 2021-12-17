@@ -2,6 +2,7 @@
 from typing import List, Tuple, Dict
 from dendropy import Tree
 
+from .fast_pmedian_finder import FastPMedianFinder
 from .pmedian_finder import PMedianFinder
 
 
@@ -18,7 +19,7 @@ def find_n_medoids(tree: Tree, n: int, distance_functions: Dict, max_dist=None) 
     :return: (1) a list of tip labels that have been chosen as representatives;
              (2) the minimal objective function value.
     """
-    medoidFinder = PMedianFinder(tree)
+    medoidFinder = FastPMedianFinder(tree)
     objective, medoids = medoidFinder.find_medoids(n, distance_functions)
 
     return medoids, objective

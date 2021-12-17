@@ -1,20 +1,26 @@
 # -*- coding: utf-8 -*-
-from typing import Callable, Iterable, Optional, List
+from typing import Callable, Iterable, Optional, List, Tuple
 from dendropy import Tree, Node
 
 
-def dfs_tree_traversal(node: Node, prev_node: Optional[Node], cur_dist: float, node_dist_pairs: List):
-    node_dist_pairs.append((node, cur_dist))
-    neighbors = []
-    if node.child_nodes():
-        neighbors += node.child_nodes()
-    if node.parent_node:
-        neighbors.append(node.parent_node)
-    for neighbor in neighbors:
-        if neighbor is not prev_node:
-            is_parent = node.parent_node is neighbor
-            edge_len = node.edge_length if is_parent else neighbor.edge_length
-            dfs_tree_traversal(neighbor, node, cur_dist + edge_len, node_dist_pairs)
+def dfs_tree_traversal(node: Node) -> List[Tuple[Node, float]]:
+    node_dist_pairs = []
+    node_stack = []  # node with prev_node and distance.
+    node_stack.append((node, None, 0))
+    while node_stack:
+        node, prev_node, cur_dist = node_stack.pop()
+        node_dist_pairs.append((node, cur_dist))
+        neighbors = []
+        if node.child_nodes():
+            neighbors += node.child_nodes()
+        if node.parent_node:
+            neighbors.append(node.parent_node)
+        for neighbor in neighbors:
+            if neighbor is not prev_node:
+                is_parent = node.parent_node is neighbor
+                edge_len = node.edge_length if is_parent else neighbor.edge_length
+                node_stack.append((neighbor, node, cur_dist + edge_len))
+    return node_dist_pairs
 
 
 def filtered_preorder_iterator(tree: Tree, subtree_filter: Optional[Callable[[Node], bool]]) -> Iterable[Node]:

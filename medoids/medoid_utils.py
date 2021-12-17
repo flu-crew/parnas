@@ -65,7 +65,28 @@ def find_closest_centers(tree: Tree, centers: List[str]) -> Dict[Node, Tuple[str
     return center_map
 
 
-def build_distance_functions(tree: Tree, radius=None, prior_centers=None, taxa_weights=None):
+class DistFunction(object):
+    def __init__(self, is_zero, min_dst=None, max_dist=None, weight=None):
+        self.is_zero = is_zero
+        if not is_zero:
+            assert None not in (min_dst, max_dist, weight)
+            assert min_dst <= max_dist
+        self.min_dist = min_dst
+        self.max_dist = max_dist
+        self.weight = weight
+
+    def get_dist(self, dist: float):
+        if self.is_zero:
+            return 0
+
+        if dist <= self.min_dist:
+            return 0
+        mapped_dist = dist if (dist <= self.max_dist) else self.max_dist
+        mapped_dist *= self.weight
+        return mapped_dist
+
+
+def build_distance_functions(tree: Tree, radius=None, prior_centers=None, taxa_weights=None) -> Dict[Node, DistFunction]:
     if prior_centers:
         # dendropy_tree = Tree.get(data=tree.format(fmt='newick'), schema='newick',
         #                          preserve_underscores=True)  # convert to dendropy.
@@ -79,19 +100,12 @@ def build_distance_functions(tree: Tree, radius=None, prior_centers=None, taxa_w
             weight = taxa_weights[node.taxon.label] if taxa_weights else 1  # default weight is 1.
             max_dist = closest_prior_dist[node.taxon.label] if prior_centers else math.inf
             min_dist = radius if radius else 0
-            def dist_func(min_d, max_d, w):
-                return lambda dist: (0 if dist <= min_d else (dist if dist <= max_d else max_d)) * w
             if max_dist <= min_dist:
-                function = lambda dist: 0
+                function = DistFunction(is_zero=True)
             else:
-                function = dist_func(min_dist, max_dist, weight)
-            # function = lambda dist: (0 if dist <= min_dist else (dist if dist <= max_dist else max_dist)) * weight
-            # if radius:
-            #     function = lambda dist: (0 if dist < radius else dist) * weight
-            # else:
-            #     function = lambda dist: dist * weight
+                function = DistFunction(False, min_dist, max_dist, weight)
         else:
-            function = lambda dist: 0  # non-terminal nodes do not contribute to the objective function.
+            function = DistFunction(is_zero=True)  # non-terminal nodes do not contribute to the objective function.
 
         distance_functions[node] = function
 

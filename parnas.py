@@ -22,6 +22,9 @@ from sequences import SequenceSimilarityMatrix
 from medoids import find_n_medoids, annotate_with_closest_centers, build_distance_functions, binarize_tree
 
 
+
+# os.environ["NUMBA_DUMP_ANNOTATION"] = "1"
+
 # Computes the coverage radius (# of substitutions) that satisfies the similarity threshold.
 def threshold_to_substitutions(sim_threshold: float, alignment: MultipleSeqAlignment) -> int:
     subs = floor((1 - sim_threshold / 100) * len(alignment[0]))

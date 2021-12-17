@@ -32,7 +32,10 @@ class TreeIndexer:
                 raise InvalidArgumentError('tree', '', 'Input tree should be over the initially specified taxon set')
 
         node_id = 0
-        for node in tree.preorder_node_iter():
+        for leaf in tree.leaf_node_iter():
+            leaf.index = node_id
+            node_id += 1
+        for node in tree.preorder_internal_node_iter():
             node.index = node_id
-            node.annotations.add_new('id', node_id)
+            # node.annotations.add_new('id', node_id)
             node_id += 1
