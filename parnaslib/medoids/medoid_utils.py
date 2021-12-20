@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from typing import List, Dict, Tuple
-from dendropy import Tree, Node
+from dendropy import Tree, Node, Taxon
 from Bio.Phylo import BaseTree
 import math
 
@@ -86,7 +86,8 @@ class DistFunction(object):
         return mapped_dist
 
 
-def build_distance_functions(tree: Tree, radius=None, prior_centers=None, taxa_weights=None) -> Dict[Node, DistFunction]:
+def build_distance_functions(tree: Tree, radius=None, prior_centers=None, fully_excluded=None, taxa_weights=None)\
+        -> Dict[Node, DistFunction]:
     if prior_centers:
         # dendropy_tree = Tree.get(data=tree.format(fmt='newick'), schema='newick',
         #                          preserve_underscores=True)  # convert to dendropy.
@@ -97,10 +98,11 @@ def build_distance_functions(tree: Tree, radius=None, prior_centers=None, taxa_w
     distance_functions = {}
     for node in tree.preorder_node_iter():
         if node.is_leaf():
+            excluded = (node.taxon.label in fully_excluded) if fully_excluded else False  # If excluded, dist function is 0.
             weight = taxa_weights[node.taxon.label] if taxa_weights else 1  # default weight is 1.
             max_dist = closest_prior_dist[node.taxon.label] if prior_centers else math.inf
             min_dist = radius if radius else 0
-            if max_dist <= min_dist:
+            if excluded or max_dist <= min_dist:
                 function = DistFunction(is_zero=True)
             else:
                 function = DistFunction(False, min_dist, max_dist, weight)
@@ -110,6 +112,16 @@ def build_distance_functions(tree: Tree, radius=None, prior_centers=None, taxa_w
         distance_functions[node] = function
 
     return distance_functions
+
+
+def get_costs(tree: Tree, excluded=None, fully_excluded=None) -> Dict[str, float]:
+    cost_map = {}
+    for taxon in tree.taxon_namespace:
+        if (excluded and taxon.label in excluded) or (fully_excluded and taxon.label in fully_excluded):
+            cost_map[taxon.label] = math.inf
+        else:
+            cost_map[taxon.label] = 0
+    return cost_map
 
 
 def binarize_tree(tree: Tree, edge_length=0):

@@ -12,7 +12,7 @@ from numba.experimental import jitclass
 from .medoid_utils import DistFunction
 from .pmedian_utils import cost_function, filtered_postorder_iterator, dfs_tree_traversal
 from .tree_indexer import TreeIndexer
-from .logging import parnas_logger
+from parnaslib.logging import parnas_logger
 
 
 class FastPMedianFinder(object):
@@ -27,7 +27,6 @@ class FastPMedianFinder(object):
     def __init__(self, tree: Tree):
         tree_indexer = TreeIndexer(tree.taxon_namespace)
         tree_indexer.index_tree(tree)  # Now all nodes in the tree have an 'index' field. First n indices = leaves.
-        self.cost_function = cost_function
 
         self.nodes = list(tree.nodes())
         self.nnodes = len(self.nodes)
@@ -52,11 +51,14 @@ class FastPMedianFinder(object):
         self.G = np.array([], dtype=np.float64)
         self.F = np.array([], dtype=np.float64)
 
-    def find_medoids(self, p: int, distance_functions: Dict[Node, DistFunction]):
+    def find_medoids(self, p: int, distance_functions: Dict[Node, DistFunction], cost_map: Dict[str, float]):
         parnas_logger.debug(f'Started find_medoids {datetime.now().strftime("%H:%M:%S")}')
         self.distance_functions = distance_functions
+        self.cost_map = cost_map
         # Parameters of a distance function for each leaf stored in an array:
         self.dist_func_array = np.empty((self.nleaves, 4), dtype=np.float64)
+        # Initialize the costs array:
+        self.costs = np.zeros(self.nleaves, dtype=np.float64)
         # Number of medoids to choose:
         self.n_c = min(p, len(self.tree.leaf_nodes()))
 
@@ -66,7 +68,8 @@ class FastPMedianFinder(object):
 
         postorder = np.array([node.index for node in self.tree.postorder_node_iter()], dtype=np.int32)
         pmedian_jit = PMedianDP(self.children, postorder, self.is_ancestor, self.leaf_lists, self.subtree_leaves,
-                              self.distance_lookup, self.index_lookup, self.n_c, self.nleaves, self.dist_func_array)
+                              self.distance_lookup, self.index_lookup, self.n_c, self.nleaves, self.dist_func_array,
+                                self.costs)
         self.G, self.F = pmedian_jit.run_dp()
         parnas_logger.debug(f'Finished DP {datetime.now().strftime("%H:%M:%S")}')
 
@@ -98,8 +101,9 @@ class FastPMedianFinder(object):
         for node1 in self.tree.postorder_node_iter():
             node_dist_pairs = []
 
-            # Fill out dist_func array.
+            # Fill out dist_func and costs array.
             if node1.is_leaf():
+                self.costs[node1.index] = self.cost_map[node1.taxon.label]
                 func = self.distance_functions[node1]
                 if func.is_zero:
                     self.dist_func_array[node1.index, 0] = 0
@@ -225,7 +229,7 @@ class FastPMedianFinder(object):
 @jitclass([('children_arr', int32[:, ::1]), ('postorder_arr', int32[::1]), ('is_ancestor_arr', bool_[:, ::1]),
            ('leaf_lists', int32[:, ::1]), ('subtree_leaves', int32[::1]), ('distance_lookup', float64[:, ::1]),
            ('index_lookup', int32[:, ::1]), ('n_c', int32), ('nleaves', int32), ('nnodes', int32),
-           ('dist_func_arr', float64[:, ::1]),
+           ('dist_func_arr', float64[:, ::1]), ('costs', float64[::1]),
            ('G', types.ListType(types.ListType(float64[::1]))), ('F', types.ListType(types.ListType(float64[::1])))
            ])
 class PMedianDP:
@@ -236,7 +240,7 @@ class PMedianDP:
     """
 
     def __init__(self, children_arr, postorder_arr, is_ancestor_arr, leaf_lists, subtree_leaves,
-                 distance_lookup, index_lookup, n_c: int, nleaves: int, dist_func_arr):
+                 distance_lookup, index_lookup, n_c: int, nleaves: int, dist_func_arr, costs):
         self.children_arr = children_arr
         self.postorder_arr = postorder_arr
         self.is_ancestor_arr = is_ancestor_arr
@@ -245,6 +249,7 @@ class PMedianDP:
         self.distance_lookup = distance_lookup
         self.index_lookup = index_lookup
         self.dist_func_arr = dist_func_arr
+        self.costs = costs
         self.n_c = n_c
         self.nleaves = nleaves
         self.nnodes = len(postorder_arr)
@@ -269,7 +274,7 @@ class PMedianDP:
             F_node = self.F.getitem_unchecked(node_id)
             if self._is_leaf(node_id):
                 # Allocate and append arrays for q = 1 (we do not need q > 1):
-                G_node.append(np.zeros(self.nleaves, dtype=np.float64))
+                G_node.append(np.full(self.nleaves, self.costs[node_id], dtype=np.float64))
                 F_node.append(np.full(self.nleaves, np.inf, dtype=np.float64))
                 self._initialize_G_and_F(node_id)
             else:

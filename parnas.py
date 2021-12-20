@@ -1,88 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import argparse
 import colorsys
 import math
-import os
-import re
-import subprocess
-import sys
-from argparse import RawTextHelpFormatter
 from datetime import datetime
-from io import StringIO
-from math import floor
 from typing import List
 
-from Bio import Phylo, AlignIO, SeqRecord, SeqIO
-from Bio.Align import MultipleSeqAlignment
+from Bio import SeqRecord
 from dendropy import Tree
 
-from sequences import SequenceSimilarityMatrix
-from medoids import find_n_medoids, annotate_with_closest_centers, build_distance_functions, binarize_tree
-
+from parnaslib import parnas_logger, parser, parse_and_validate
+from parnaslib.sequences import SequenceSimilarityMatrix
+from parnaslib.medoids import find_n_medoids, annotate_with_closest_centers, build_distance_functions, binarize_tree,\
+    get_costs
 
 
 # os.environ["NUMBA_DUMP_ANNOTATION"] = "1"
-
-# Computes the coverage radius (# of substitutions) that satisfies the similarity threshold.
-def threshold_to_substitutions(sim_threshold: float, alignment: MultipleSeqAlignment) -> int:
-    subs = floor((1 - sim_threshold / 100) * len(alignment[0]))
-    print("%.3f%% similarity threshold implies that a single representative will cover all tips "
-          "in the %d-substitution radius." % (sim_threshold, subs))
-    return subs
-
-
-def reweigh_tree_ancestral(tree_path: str, alignment_path: str, aa=False) -> Tree:
-    """
-    Re-weighs the tree edges according to the number of substitutions per edge.
-    The ancestral substitutions are inferred using TreeTime (Sargulenko et al. 2018).
-    :param tree_path: path to the tree to be re-weighed.
-    :param alignment_path: path to MSA associated with the tree tips.
-    :param aa: whether the sequences consist of amino acid residues (default: nucleotide).
-    :return: The re-weighed tree
-    """
-    # Run ancestral inference with treetime.
-    treetime_outdir = 'treetime_ancestral_%s' % tree_path
-    if not os.path.exists(treetime_outdir):
-        os.mkdir(treetime_outdir)
-    treetime_log_path = '%s/treetime.log' % treetime_outdir
-    print('Inferring ancestral substitutions with TreeTime. The log will be written to "%s".' % treetime_log_path)
-    command = ['treetime', 'ancestral', '--aln', alignment_path, '--tree', tree_path, '--outdir', treetime_outdir,
-               '--gtr', 'infer']
-    if aa:
-        command += ['--aa']
-    treetime_out = '%s/annotated_tree.nexus' % treetime_outdir
-    with open(treetime_log_path, 'w') as treetime_log:
-        subprocess.call(command, stdout=treetime_log, stderr=subprocess.STDOUT)
-
-    # Read the treetime output and weight the edges according to the number of subs.
-    try:
-        # Update the treetime output file.
-        treetime_for_dendropy = '%s/ancestral_updated.nexus' % treetime_outdir
-        with open(treetime_out, 'r') as treetime_nexus:
-            with open(treetime_for_dendropy, 'w') as dendropy_nexus:
-                for line in treetime_nexus:
-                    for mutations in re.findall(r'mutations=".*?"', line):
-                        upd_mutations = mutations.replace(',',
-                                                          '||')  # DendroPy does not like commas in the annotations.
-                        line = line.replace(mutations, upd_mutations)
-                    dendropy_nexus.write(line)
-        ancestral_tree = Tree.get(path=treetime_for_dendropy, schema='nexus', preserve_underscores=True)
-    except Exception:
-        print('Failed to infer an ancestral tree with TreeTime. '
-              'Please see the TreeTime output log and consider inferring the ancestral states manually.')
-        sys.exit(-1)
-
-    print('Re-weighing the tree based on ancestral substitutions.')
-    reweighed_tree = ancestral_tree
-    for node in reweighed_tree.nodes():
-        edge_length = 0
-        mutations_str = node.annotations.get_value('mutations')
-        if mutations_str and mutations_str.strip():
-            edge_length = mutations_str.count('||') + 1
-        node.edge_length = edge_length
-    return reweighed_tree
 
 
 def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, radius=None):
@@ -161,147 +94,38 @@ def assess_clade_similarity(annotated_tree: Tree, centers: List[str], records: L
 
 
 if __name__ == '__main__':
-    # Program interface:
-    parser = argparse.ArgumentParser(description='Phylogenetic mAximum RepreseNtAtion Sampling (PARNAS)',
-                                     formatter_class=RawTextHelpFormatter)
-    parser.add_argument('-t', '--tree', type=str, action='store', dest='tree',
-                        help='path to the input tree in newick or nexus format', required=True)
-    parser.add_argument('-n', type=int, action='store', dest='samples',
-                        help='number of samples (representatives) to be chosen.\n' +
-                             'This argument is required unless the --cover option is specified', required=True)
-    parser.add_argument('--color', type=str, action='store', dest='out_path',
-                        help='PARNAS will save a colored tree, where the chosen representatives are highlighted '
-                        'and the tree is color-partitioned respective to the representatives.\n'
-                        'If prior centers are specified, they (and the subtrees they represent) will be colored red.')
-    parser.add_argument('--prior-regex', type=str, action='store', dest='prior_regex',
-                        help='indicate the previous centers (if any) with a regex. '
-                             'The regex should match a full taxon name.\n'
-                             'PARNAS will then select centers that represent diversity '
-                             'not covered by the previous centers.', required=False)
-    # taxa_handler = parser.add_argument_group('Excluding taxa')
-    # taxa_handler.add_argument('--exclude', type=str, action='store', dest='exclude_regex',
-    #                           help='The taxa matching this regex will be excluded from consideration by the algorithm.'
-    #                                'PARNAS will treat these taxa as not present on the tree.')
-
-    parser.add_argument('--threshold', type=float, action='store', dest='percent',
-                        help='sequences similarity threshold: the algorithm will choose best representatives that cover as much\n' +
-                             'diversity as possible within the given similarity threshold. ' +
-                             '--nt or --aa must be specified with this option', required=False)
-    parser.add_argument('--cover', action='store_true',
-                        help="choose the best representatives (smallest number) that cover all the tips within the specified threshold.\n" +
-                        "If specified, the --threshold argument must be specified as well",
-                        required=False)
-
-    alignment_parser = parser.add_argument_group('Sequence alignment')
-    alignment_parser.add_argument('--nt', type=str, action='store', dest='nt_alignment',
-                        help='path to nucleotide sequences associated with the tree tips', required=False)
-    alignment_parser.add_argument('--aa', type=str, action='store', dest='aa_alignment',
-                        help='path to amino acid sequences associated with the tree tips', required=False)
-    # parser.add_argument('--prior', metavar='TAXON', type=str, nargs='+',
-    #                     help='space-separated list of taxa that have been previously chosen as centers.\n' +
-    #                          'The algorithm will choose new representatives that cover the "new" diversity in the tree')
-    args = parser.parse_args()
-
-    # Validate the tree.
-    tree = None
-    try:
-        tree = Tree.get(path=args.tree, schema='newick', preserve_underscores=True)
-    except Exception:
-        try:
-            tree = Tree.get(path=args.tree, schema='nexus', preserve_underscores=True)
-        except Exception:
-            parser.error('Cannot read the specified tree file "%s". ' % args.tree +
-                         'Make sure the tree is in the newick or nexus format.')
-
-    # Validate n.
-    n = args.samples
-    if n < 1 or n >= len(tree.taxon_namespace):
-        parser.error('n should be at least 1 and smaller than the number of taxa in the tree.')
-
-    # Handle --prior-regex.
-    prior_centers = None
-    if args.prior_regex:
-        prior_regex = args.prior_regex
-        prior_centers = []
-        print('Prior centers that match the regex:')
-        for taxon in tree.taxon_namespace:
-            if re.match(prior_regex, taxon.label):
-                prior_centers.append(taxon.label)
-                print('\t%s' % taxon.label)
-        if not prior_centers:
-            print('\tNone.')
-
-    # Validate alignment.
-    if args.nt_alignment or args.aa_alignment:
-        if args.nt_alignment and args.aa_alignment:
-            parser.error('Please specify EITHER the nucleotide or amino acid alignment - not both.')
-        alignment_path = args.nt_alignment if args.nt_alignment else args.aa_alignment
-        is_aa = args.aa_alignment is not None
-        try:
-            alignment = list(AlignIO.read(alignment_path, 'fasta'))
-        except Exception:
-            parser.error('Cannot read the specified FASTA alignment in "%s".' % alignment_path)
-        alignment_present = True
-    else:
-        alignment_present = False
-
-    # Validate threshold-related parameters and re-weigh the tree
-    if args.percent:
-        if args.percent <= 0 or args.percent >= 100:
-            parser.error('Invalid "--threshold %.3f" option. The threshold must be between 0 and 100 (exclusive)'
-                         % args.percent)
-        if not alignment_present:
-            parser.error('To use the --threshold parameter, please specify a nucleotide' +
-                         'or amino acid alignment associated with the tree tips.')
-        else:
-            radius = threshold_to_substitutions(args.percent, alignment)
-            query_tree = reweigh_tree_ancestral(args.tree, alignment_path, is_aa)
-    else:
-        query_tree = tree
-        radius = None
-
-    # Validate cover
-    if args.cover:
-        if not args.percent:
-            parser.error('To use --cover parameter, please specify --threshold option.')
+    args, query_tree, n, radius, prior_centers, excluded_taxa, fully_excluded = parse_and_validate()
 
     # Binarize the query tree:
     binarize_tree(query_tree, edge_length=0)
 
-    # bio_tree = Phylo.read(StringIO(str(query_tree) + ';'), 'newick')  # convert the denropy tree to a biopython tree.
-    # if not (bio_tree.is_bifurcating() and len(bio_tree.root.clades) == 2):
-    #     parser.error('The input tree must be bifurcating!')
-    dist_functions = build_distance_functions(query_tree, prior_centers=prior_centers, radius=radius)
-    print("Inferring best representatives.")
+    dist_functions = build_distance_functions(query_tree, prior_centers=prior_centers, fully_excluded=fully_excluded,
+                                              radius=radius)
+    cost_map = get_costs(query_tree, excluded_taxa, fully_excluded)
+    parnas_logger.info("Inferring best representatives...")
     if not args.cover:
-        representatives, value = find_n_medoids(query_tree, n, dist_functions, max_dist=radius)
+        representatives, value = find_n_medoids(query_tree, n, dist_functions, cost_map, max_dist=radius)
     else:
         opt_n = -1
         for n in range(1, len(query_tree.leaf_nodes()) + 1):
-            representatives, value = find_n_medoids(query_tree, n, dist_functions, max_dist=radius)
+            representatives, value = find_n_medoids(query_tree, n, dist_functions, cost_map, max_dist=radius)
             if value == 0:
                 opt_n = n
                 break
 
     if len(representatives) == 0:
-        print('The diversity on the tree is already fully covered by the prior centers - no new representatives needed.')
+        parnas_logger.info('The diversity on the tree is already fully covered by the prior centers - no new representatives needed.')
     else:
-        print('Chosen representatives:')
+        parnas_logger.info('Chosen representatives:')
         for rep in representatives:
-            print('\t%s' % rep)
-
-    # Choose random centers for testing.
-    # taxa = [taxon.label for taxon in query_tree.taxon_namespace]
-    # shuffle(taxa)
-    # rnd_representatives = taxa[:n]
-    # print(rnd_representatives)
+            print('%s' % rep)
 
     if args.out_path:
         color_by_clusters(query_tree, representatives, prior_centers=prior_centers, radius=radius)
-        print('\tFinished coloring', datetime.now().strftime("%H:%M:%S"))
+        parnas_logger.debug('Finished coloring', datetime.now().strftime("%H:%M:%S"))
         try:
             query_tree.write(path=args.out_path, schema='nexus')
-            print('Colored tree was saved to "%s".' % args.out_path)
+            parnas_logger.info('Colored tree was saved to "%s".' % args.out_path)
         except Exception:
             parser.error('Cant write to the specified path "%s".' % args.out_path)
 

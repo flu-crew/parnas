@@ -6,7 +6,8 @@ from .fast_pmedian_finder import FastPMedianFinder
 from .pmedian_finder import PMedianFinder
 
 
-def find_n_medoids(tree: Tree, n: int, distance_functions: Dict, max_dist=None) -> Tuple[List[str], float]:
+def find_n_medoids(tree: Tree, n: int, distance_functions: Dict, cost_map: Dict[str, float], max_dist=None)\
+        -> Tuple[List[str], float]:
     """
     Finds n medoids on a tree by a modification of Tamir's algorithm for p-median.
     If max_dist is specified, the method finds n representatives that cover
@@ -14,13 +15,13 @@ def find_n_medoids(tree: Tree, n: int, distance_functions: Dict, max_dist=None) 
 
     :param tree: phylogenetic tree in the dendropy format.
     :param n: number of representatives to be chosen.
-    :param distance_functions: a map that links a node (Phylo.Clade) to the distance function of that node.
+    :param distance_functions: a map that links a node (dendropy.Node) to the distance function of that node.
     :param max_dist: an optional parameter that specifies the maximum coverage distance by a single representative.
     :return: (1) a list of tip labels that have been chosen as representatives;
              (2) the minimal objective function value.
     """
     medoidFinder = FastPMedianFinder(tree)
-    objective, medoids = medoidFinder.find_medoids(n, distance_functions)
+    objective, medoids = medoidFinder.find_medoids(n, distance_functions, cost_map)
 
     return medoids, objective
 
