@@ -10,7 +10,7 @@ from numba import int32, float64, bool_, typed, types
 from numba.experimental import jitclass
 
 from .medoid_utils import DistFunction
-from .pmedian_utils import cost_function, filtered_postorder_iterator, dfs_tree_traversal
+from .pmedian_utils import filtered_postorder_iterator, dfs_tree_traversal
 from .tree_indexer import TreeIndexer
 from parnaslib.logging import parnas_logger
 

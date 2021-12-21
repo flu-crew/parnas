@@ -40,7 +40,7 @@ parser.add_argument('--cover', action='store_true',
 
 taxa_handler = parser.add_argument_group('Excluding taxa')
 taxa_handler.add_argument('--exclude', type=str, action='store', dest='exclude_regex',
-                          help='Prohibits parnas to choose reoresentatives from the taxa matching this regex'
+                          help='Prohibits parnas to choose reoresentatives from the taxa matching this regex. '
                                'However, the excluded taxa will still contribute to the objective function.')
 taxa_handler.add_argument('--exclude-fully', type=str, action='store', dest='full_regex',
                           help='Completely ignore the taxa matching this regex.')
@@ -58,8 +58,8 @@ alignment_parser.add_argument('--aa', type=str, action='store', dest='aa_alignme
 # Computes the coverage radius (# of substitutions) that satisfies the similarity threshold.
 def threshold_to_substitutions(sim_threshold: float, alignment: MultipleSeqAlignment) -> int:
     subs = floor((1 - sim_threshold / 100) * len(alignment[0]))
-    print("%.3f%% similarity threshold implies that a single representative will cover all tips "
-          "in the %d-substitution radius." % (sim_threshold, subs))
+    parnas_logger.info("%.3f%% similarity threshold implies that a single representative will cover all tips "
+                       "in the %d-substitution radius." % (sim_threshold, subs))
     return subs
 
 

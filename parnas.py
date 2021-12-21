@@ -18,7 +18,7 @@ from parnaslib.medoids import find_n_medoids, annotate_with_closest_centers, bui
 # os.environ["NUMBA_DUMP_ANNOTATION"] = "1"
 
 
-def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, radius=None):
+def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, fully_excluded=None, radius=None):
     # Annotate the tree nodes with the closest centers.
     annotate_with_closest_centers(tree, centers, prior_centers=prior_centers, radius=radius)
 
@@ -48,6 +48,7 @@ def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, radius
 
     # Drop previous color annotations and color 'regular' taxa black (to avoid color mixing in FigTree).
     black = '#000000'
+    grey = '#a9a9a9'
     special_taxa = centers
     if prior_centers:
         special_taxa = special_taxa + prior_centers
@@ -55,7 +56,10 @@ def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, radius
     for taxon in tree.taxon_namespace:
         taxon.annotations.drop(name='!color')  # Remove any previous colors if any.
         if not taxon.label in special_taxa:
-            taxon.annotations.add_new('!color', black)
+            if fully_excluded and taxon.label in fully_excluded:
+                taxon.annotations.add_new('!color', grey)
+            else:
+                taxon.annotations.add_new('!color', black)
 
     # Color the centers.
     for center_ind, center in enumerate(centers):
@@ -107,22 +111,31 @@ if __name__ == '__main__':
         representatives, value = find_n_medoids(query_tree, n, dist_functions, cost_map, max_dist=radius)
     else:
         opt_n = -1
+        prev_value = -1
         for n in range(1, len(query_tree.leaf_nodes()) + 1):
             representatives, value = find_n_medoids(query_tree, n, dist_functions, cost_map, max_dist=radius)
-            if value == 0:
+            if value == prev_value:
+                # The best possible value was achieved on the previous n (full coverage is impossible).
+                opt_n = n - 1
+                break
+            elif value == 0:
+                # Achieved full coverage.
                 opt_n = n
                 break
+            prev_value = value
 
     if len(representatives) == 0:
-        parnas_logger.info('The diversity on the tree is already fully covered by the prior centers - no new representatives needed.')
+        parnas_logger.info('The diversity on the tree is already fully covered by the prior centers - no new '
+                           'representatives needed.')
     else:
         parnas_logger.info('Chosen representatives:')
         for rep in representatives:
             print('%s' % rep)
 
     if args.out_path:
-        color_by_clusters(query_tree, representatives, prior_centers=prior_centers, radius=radius)
-        parnas_logger.debug('Finished coloring', datetime.now().strftime("%H:%M:%S"))
+        color_by_clusters(query_tree, representatives, prior_centers=prior_centers, fully_excluded=fully_excluded,
+                          radius=radius)
+        parnas_logger.debug(f'Finished coloring {datetime.now().strftime("%H:%M:%S")}')
         try:
             query_tree.write(path=args.out_path, schema='nexus')
             parnas_logger.info('Colored tree was saved to "%s".' % args.out_path)
