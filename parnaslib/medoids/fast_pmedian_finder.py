@@ -44,6 +44,9 @@ class FastPMedianFinder(object):
         self.subtree_leaves = np.zeros(self.nnodes, dtype=np.int32)
         # Ids of two children nodes for each node ([-1, -1] if a leaf):
         self.children = np.full((self.nnodes, 2), -1, dtype=np.int32)
+        # Ids of parents nodes and lengths of parent edges:
+        self.parents = np.full(self.nnodes, -1, dtype=np.int32)
+        self.edge_lens = np.zeros(self.nnodes, dtype=np.float64)
         # Leaf lists for each node sorted by distance (+ additional properties - see Tamir 1996):
         self.leaf_lists = np.zeros((self.nnodes, self.nleaves), dtype=np.int32)
 
@@ -68,8 +71,8 @@ class FastPMedianFinder(object):
 
         postorder = np.array([node.index for node in self.tree.postorder_node_iter()], dtype=np.int32)
         pmedian_jit = PMedianDP(self.children, postorder, self.is_ancestor, self.leaf_lists, self.subtree_leaves,
-                              self.distance_lookup, self.index_lookup, self.n_c, self.nleaves, self.dist_func_array,
-                                self.costs)
+                                self.distance_lookup, self.index_lookup, self.n_c, self.nleaves, self.dist_func_array,
+                                self.costs, self.parents, self.edge_lens, self.tree.seed_node.index)
         self.G, self.F = pmedian_jit.run_dp()
         parnas_logger.debug(f'Finished DP {datetime.now().strftime("%H:%M:%S")}')
 
@@ -100,6 +103,9 @@ class FastPMedianFinder(object):
         """
         for node1 in self.tree.postorder_node_iter():
             node_dist_pairs = []
+            if node1.parent_node:
+                self.edge_lens[node1.index] = node1.edge_length
+                self.parents[node1.index] = node1.parent_node.index
 
             # Fill out dist_func and costs array.
             if node1.is_leaf():
@@ -117,31 +123,31 @@ class FastPMedianFinder(object):
                 self.children[node1.index, 0] = left.index
                 self.children[node1.index, 1] = right.index
 
-            # Compute distances from node1 to all other nodes:
-            for node2, dist in dfs_tree_traversal(node1):
-                if node2.is_leaf():
-                    self.distance_lookup[node1.index, node2.index] = dist
-
-            # for node2 in self.tree.find_clades(lambda x: node1.is_parent_of(x), order='postorder'):
-            subtree_size = 0
-            for node2 in node1.postorder_iter():
-                self.is_ancestor[node1.index, node2.index] = True
-                if node2.is_leaf():
-                    node_dist_pairs.append((node2.index, self.distance_lookup[node1.index, node2.index]))
-                    subtree_size += 1
-            self.subtree_leaves[node1.index] = subtree_size
-            # for node2 in self.tree.find_clades(lambda x: not node1.is_parent_of(x), order='postorder'):
-            for node2 in filtered_postorder_iterator(self.tree, lambda v: v is not node1):
-                if node2.is_leaf():
-                    node_dist_pairs.append((node2.index, self.distance_lookup[node1.index, node2.index]))
-            node_dist_pairs.sort(key=lambda r: r[1])  # sort pairs by distance.
-
-            self.leaf_lists[node1.index, :] = np.array([node2_id for node2_id, dist in node_dist_pairs], dtype=np.int32)
-
-            # Mapping a node to its index in the sorted list for node1:
-            for i, (node2_id, dist) in enumerate(node_dist_pairs):
-                self.index_lookup[node1.index, node2_id] = i
-            # self.distance_lookup[node1.index] = dict([(node, j) for j, (node, dist) in enumerate(node_dist_pairs)])
+            # # Compute distances from node1 to all other nodes:
+            # for node2, dist in dfs_tree_traversal(node1):
+            #     if node2.is_leaf():
+            #         self.distance_lookup[node1.index, node2.index] = dist
+            #
+            # # for node2 in self.tree.find_clades(lambda x: node1.is_parent_of(x), order='postorder'):
+            # subtree_size = 0
+            # for node2 in node1.postorder_iter():
+            #     self.is_ancestor[node1.index, node2.index] = True
+            #     if node2.is_leaf():
+            #         node_dist_pairs.append((node2.index, self.distance_lookup[node1.index, node2.index]))
+            #         subtree_size += 1
+            # self.subtree_leaves[node1.index] = subtree_size
+            # # for node2 in self.tree.find_clades(lambda x: not node1.is_parent_of(x), order='postorder'):
+            # for node2 in filtered_postorder_iterator(self.tree, lambda v: v is not node1):
+            #     if node2.is_leaf():
+            #         node_dist_pairs.append((node2.index, self.distance_lookup[node1.index, node2.index]))
+            # node_dist_pairs.sort(key=lambda r: r[1])  # sort pairs by distance.
+            #
+            # self.leaf_lists[node1.index, :] = np.array([node2_id for node2_id, dist in node_dist_pairs], dtype=np.int32)
+            #
+            # # Mapping a node to its index in the sorted list for node1:
+            # for i, (node2_id, dist) in enumerate(node_dist_pairs):
+            #     self.index_lookup[node1.index, node2_id] = i
+            # # self.distance_lookup[node1.index] = dict([(node, j) for j, (node, dist) in enumerate(node_dist_pairs)])
 
     def backtrack(self, root_index: int, n_c: int, radius_index: int):
         median_ids = []
@@ -229,7 +235,8 @@ class FastPMedianFinder(object):
 @jitclass([('children_arr', int32[:, ::1]), ('postorder_arr', int32[::1]), ('is_ancestor_arr', bool_[:, ::1]),
            ('leaf_lists', int32[:, ::1]), ('subtree_leaves', int32[::1]), ('distance_lookup', float64[:, ::1]),
            ('index_lookup', int32[:, ::1]), ('n_c', int32), ('nleaves', int32), ('nnodes', int32),
-           ('dist_func_arr', float64[:, ::1]), ('costs', float64[::1]),
+           ('dist_func_arr', float64[:, ::1]), ('costs', float64[::1]), ('parents', int32[::1]),
+           ('edge_lengths', float64[::1]), ('root_id', int32),
            ('G', types.ListType(types.ListType(float64[::1]))), ('F', types.ListType(types.ListType(float64[::1])))
            ])
 class PMedianDP:
@@ -240,7 +247,8 @@ class PMedianDP:
     """
 
     def __init__(self, children_arr, postorder_arr, is_ancestor_arr, leaf_lists, subtree_leaves,
-                 distance_lookup, index_lookup, n_c: int, nleaves: int, dist_func_arr, costs):
+                 distance_lookup, index_lookup, n_c: int, nleaves: int, dist_func_arr, costs, parents, edge_lengths,
+                 root_id: int):
         self.children_arr = children_arr
         self.postorder_arr = postorder_arr
         self.is_ancestor_arr = is_ancestor_arr
@@ -253,6 +261,11 @@ class PMedianDP:
         self.n_c = n_c
         self.nleaves = nleaves
         self.nnodes = len(postorder_arr)
+        self.parents = parents
+        self.edge_lengths = edge_lengths
+        self.root_id = root_id
+
+        self._initialize_lookups()
 
         # This is a necessary hack to properly initialize typed lists by filling them with proper content.
         # We allocate arrays for q=0 for all nodes in the tree (q > 0 arrays will be allocated dynamically later):
@@ -322,6 +335,35 @@ class PMedianDP:
             return dp_row[radius_list_index]
         else:
             return dp_row[-1]
+
+    def _initialize_lookups(self):
+        for node1_id in range(self.nnodes):
+            node_dist_pairs = typed.List()
+            # Compute distances from node1 to all other nodes:
+            for node2_id, dist in zip(*self._dfs_tree_traversal(node1_id)):
+                if self._is_leaf(node2_id):
+                    self.distance_lookup[node1_id, node2_id] = dist
+
+            # for node2 in self.tree.find_clades(lambda x: node1.is_parent_of(x), order='postorder'):
+            subtree_size = 0
+            for node2_id in self._postorder_iter(node1_id):
+                self.is_ancestor_arr[node1_id, node2_id] = True
+                if self._is_leaf(node2_id):
+                    node_dist_pairs.append((node2_id, self.distance_lookup[node1_id, node2_id]))
+                    subtree_size += 1
+            self.subtree_leaves[node1_id] = subtree_size
+            # for node2 in self.tree.find_clades(lambda x: not node1.is_parent_of(x), order='postorder'):
+            for node2_id in self._postorder_iter(self.root_id, node1_id):
+                if self._is_leaf(node2_id):
+                    node_dist_pairs.append((node2_id, self.distance_lookup[node1_id, node2_id]))
+            node_dist_pairs = sorted(node_dist_pairs, key=lambda r: r[1])
+            # node_dist_pairs.sort(key=lambda r: r[1])  # sort pairs by distance.
+
+            self.leaf_lists[node1_id, :] = np.array([node2_id for node2_id, dist in node_dist_pairs], dtype=np.int32)
+
+            # Mapping a node to its index in the sorted list for node1:
+            for i, (node2_id, dist) in enumerate(node_dist_pairs):
+                self.index_lookup[node1_id, node2_id] = i
 
     def _initialize_G_and_F(self, node_id: int):
         self.G.getitem_unchecked(node_id)[0] = np.full(self.nleaves,  self._dist_func(node_id, np.inf))
@@ -413,6 +455,56 @@ class PMedianDP:
             self._get_DP_by_id(node_id, q, radius_id, True)
         )
 
+    def _dfs_tree_traversal(self, start_node_id: int):
+        # DFS stacks (node with prev_node) + distance to node:
+        node_stack = np.full((self.nnodes, 2), -1, np.int32)
+        dist_stack = np.zeros(self.nnodes, np.float64)  # mirrors node_stack.
+        top = 0
+
+        nodes = np.empty(self.nnodes, np.int32)  # list of nodes in dfs order.
+        dists = np.empty(self.nnodes, np.float64)  # list of distances to nodes in dfs order.
+        i = 0
+        node_stack[top, 0], node_stack[top, 1] = start_node_id, -1
+        dist_stack[top] = 0
+        top = 1
+        while top > 0:
+            node_id, prev_node_id = node_stack[top - 1]
+            cur_dist = dist_stack[top - 1]
+            top -= 1
+            nodes[i], dists[i] = node_id, cur_dist
+            i += 1
+
+            neighbors = typed.List()
+            if self.children_arr[node_id, 0] >= 0:
+                neighbors.append(self.children_arr[node_id, 0])
+                neighbors.append(self.children_arr[node_id, 1])
+            if self.parents[node_id] >= 0:
+                neighbors.append(self.parents[node_id])
+            for neighbor_id in neighbors:
+                if neighbor_id != prev_node_id:
+                    is_parent = self.parents[node_id] == neighbor_id
+                    edge_len = self.edge_lengths[node_id] if is_parent else self.edge_lengths[neighbor_id]
+                    node_stack[top, 0], node_stack[top, 1] = neighbor_id, node_id
+                    dist_stack[top] = cur_dist + edge_len
+                    top += 1
+        return nodes, dists
+
+    def _postorder_iter(self, start_node_id: int, filter_node_id=None):
+        node_stack = np.empty((self.nnodes, 2), dtype=np.int32)
+        node_stack[0, 0], node_stack[0, 1] = start_node_id, 0
+        top = 1
+        while top > 0:
+            node_id, state = node_stack[top - 1]
+            top -= 1
+            if state:
+                yield node_id
+            elif node_id != filter_node_id:
+                node_stack[top, 0], node_stack[top, 1] = node_id, 1
+                top += 1
+                if not self._is_leaf(node_id):
+                    for child_id in [self.children_arr[node_id, 1], self.children_arr[node_id, 0]]:
+                        node_stack[top, 0], node_stack[top, 1] = child_id, 0
+                        top += 1
 
 # @jit('f8(i4,i4,i4,i4,i4,i4,i4,f8[:,:,:],f8[:,:,:])')
 # def jit_G_DP(q, left_id, right_id, left_rad, right_rad, min_q, max_q, G, F):

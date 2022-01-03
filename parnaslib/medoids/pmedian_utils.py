@@ -42,7 +42,7 @@ def filtered_postorder_iterator(tree: Tree, subtree_filter: Optional[Callable[[N
         if state:
             if subtree_filter is None or subtree_filter(node):
                 yield node
-        elif subtree_filter(node):
+        elif subtree_filter is None or subtree_filter(node):
             stack.append((node, True))
             stack.extend([(n, False) for n in reversed(node._child_nodes)])
 
