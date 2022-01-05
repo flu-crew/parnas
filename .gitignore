@@ -3,6 +3,7 @@
 *.nexus
 *.aln
 *.fasta
+*.fna
 
 # TreeTime output
 treetime*
@@ -32,3 +33,6 @@ TEST*.xml
 
 # Python virtual environment
 venv/
+
+# Simulation files
+sims/
