@@ -10,7 +10,6 @@ from numba import int32, float64, bool_, typed, types
 from numba.experimental import jitclass
 
 from .medoid_utils import DistFunction
-from .pmedian_utils import filtered_postorder_iterator, dfs_tree_traversal
 from .tree_indexer import TreeIndexer
 from parnaslib.logging import parnas_logger
 
@@ -190,9 +189,11 @@ class FastPMedianFinder(object):
             else:
                 # Internal node.
                 if in_G:
-                    cur_val = self.G[node_ind][q][self.index_lookup[node_ind, radius_index]]
+                    cur_val = self._get_DP_by_id(node_ind, q, radius_index, True)
+                    #cur_val = self.G[node_ind][q][self.index_lookup[node_ind, radius_index]]
                     if self.index_lookup[node_ind, radius_index] > 0 and\
-                            cur_val == self.G[node_ind][q][self.index_lookup[node_ind, radius_index] - 1]:
+                            cur_val == self._get_DP_by_list_index(node_ind, q, self.index_lookup[node_ind, radius_index] - 1, True):
+                            # cur_val == self.G[node_ind][q][self.index_lookup[node_ind, radius_index] - 1]:
                         next_rad_id = self.leaf_lists[node_ind, self.index_lookup[node_ind, radius_index] - 1]
                         backtrack_queue.append((True, node_ind, q, next_rad_id))
                     else:
@@ -202,8 +203,9 @@ class FastPMedianFinder(object):
                         c2_size = self.subtree_leaves[c2]
                         for q1 in range(max(1, q - c2_size), min(c1_size + 1, q + 1)):
                             q2 = q - q1
-                            ch_val = self.G[c1][q1][self.index_lookup[c1, radius_index]] +\
+                            ch_val = self._get_DP_by_id(c1, q1, radius_index, True) +\
                                      self._get_DP_by_id(c2, q2, radius_index, False)
+                                     # self.G[c1][q1][self.index_lookup[c1, radius_index]] +\
                                      # self.F[c2][q2][self.index_lookup[c2, radius_index]]
                             ch_val += 0  # Assuming that the contribution of internal nodes is 0!
                             if ch_val == cur_val:
@@ -213,8 +215,10 @@ class FastPMedianFinder(object):
                                 break
                 else:
                     # In F:
-                    cur_val = self.F[node_ind][q][self.index_lookup[node_ind, radius_index]]
-                    if cur_val == self.G[node_ind][q][self.index_lookup[node_ind, radius_index]]:
+                    cur_val = self._get_DP_by_id(node_ind, q, radius_index, False)
+                    # cur_val = self.F[node_ind][q][self.index_lookup[node_ind, radius_index]]
+                    # if cur_val == self.G[node_ind][q][self.index_lookup[node_ind, radius_index]]:
+                    if cur_val == self._get_DP_by_id(node_ind, q, radius_index, True):
                         backtrack_queue.append((True, node_ind, q, radius_index))
                     else:
                         left, right = self.children[node_ind]
