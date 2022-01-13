@@ -400,8 +400,11 @@ class PMedianDP:
         if node_id == radius_id:
             return  # skip.
         elif not self.is_ancestor_arr[node_id, radius_id]:
-            node_q_row[self.index_lookup[node_id, radius_id]] =\
-                node_q_row[self.index_lookup[node_id, radius_id] - 1]
+            if self.index_lookup[node_id, radius_id] > 0:
+                node_q_row[self.index_lookup[node_id, radius_id]] =\
+                    node_q_row[self.index_lookup[node_id, radius_id] - 1]
+            else:
+                node_q_row[self.index_lookup[node_id, radius_id]] = np.inf
         else:
             left_id, right_id = self.children_arr[node_id]
             if self.is_ancestor_arr[left_id, radius_id]:
