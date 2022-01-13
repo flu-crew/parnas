@@ -102,11 +102,6 @@ class FastPMedianFinder(object):
         return self.children[node_id, 0] < 0
 
     def _initialize_lookups(self):
-        """
-        Constructs sorted node lists for each node.
-        Initializes distance_lookup and r_lookup maps + other helper structures.
-        TODO: re-implement to assert O(n^2) runtime. Currently O(n^2 logn)!
-        """
         for node1 in self.tree.postorder_node_iter():
             node_dist_pairs = []
             if node1.parent_node:
@@ -348,6 +343,11 @@ class PMedianDP:
             return dp_row[-1]
 
     def _initialize_lookups(self):
+        """
+        Constructs sorted node lists for each node.
+        Initializes leaf_lists, index_lookup map + other helper structures.
+        TODO: re-implement to assert O(n^2) runtime. Currently O(n^2 logn).
+        """
         for node1_id in range(self.nnodes):
             node_dist_pairs = typed.List()
             # Compute distances from node1 to all other nodes:
