@@ -12,7 +12,7 @@ from dendropy import Tree
 from parnaslib import parnas_logger, parser, parse_and_validate
 from parnaslib.sequences import SequenceSimilarityMatrix
 from parnaslib.medoids import find_n_medoids, annotate_with_closest_centers, build_distance_functions, binarize_tree,\
-    get_costs
+    get_costs, find_n_medoids_with_diversity
 
 
 # os.environ["NUMBA_DUMP_ANNOTATION"] = "1"
@@ -108,7 +108,8 @@ if __name__ == '__main__':
     cost_map = get_costs(query_tree, excluded_taxa, fully_excluded)
     parnas_logger.info("Inferring best representatives...")
     if not args.cover:
-        representatives, value = find_n_medoids(query_tree, n, dist_functions, cost_map, max_dist=radius)
+        representatives, value, diversity_scores = find_n_medoids_with_diversity(query_tree, n, dist_functions, cost_map,
+                                                                                 max_dist=radius)
     else:
         opt_n = -1
         prev_value = -1
@@ -131,6 +132,9 @@ if __name__ == '__main__':
         parnas_logger.info('Chosen representatives:')
         for rep in representatives:
             print('%s' % rep)
+    if not args.cover and len(representatives) > 1 and diversity_scores:
+        parnas_logger.info('Chosen representatives cover %.2f%% of ' % diversity_scores[-1] +
+                           f'{"(new) " if prior_centers else "overall "}diversity.')
 
     if args.out_path:
         color_by_clusters(query_tree, representatives, prior_centers=prior_centers, fully_excluded=fully_excluded,
@@ -141,6 +145,22 @@ if __name__ == '__main__':
             parnas_logger.info('Colored tree was saved to "%s".' % args.out_path)
         except Exception:
             parser.error('Cant write to the specified path "%s".' % args.out_path)
+
+    if args.csv_path:
+        if args.cover:
+            parnas_logger.warning('"--diversity" cannot be used in combination with "--cover".')
+        elif n <= 1:
+            parnas_logger.warning('No diversity scores to report as n < 2.')
+        elif diversity_scores:
+            try:
+                with open(args.csv_path, 'w') as diversity_log:
+                    diversity_log.write('Representatives, Diversity_covered\n')
+                    for i, score in enumerate(diversity_scores):
+                        diversity_log.write('%d, %.2f\n' % (i + 2, score))
+                parnas_logger.info('Diversity scores were saved to "%s".' % args.csv_path)
+            except IOError:
+                parser.error('Cant write to the specified path "%s".' % args.csv_path)
+
 
         # if args.nt_alignment:
         #     # Parsing assuming its swIAV HA sequences.

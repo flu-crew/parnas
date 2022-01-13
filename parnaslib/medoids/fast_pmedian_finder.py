@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from collections import deque
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 from dendropy import Tree, Node
@@ -90,6 +90,13 @@ class FastPMedianFinder(object):
 
         parnas_logger.debug(f'Optimal objective function: {obj_value}')
         return obj_value, median_names
+
+    def get_score(self, k: int) -> Optional[float]:
+        root_ind = self.tree.seed_node.index
+        if not self.G or len(self.G) <= 0 or k >= len(self.G[root_ind]):
+            return None
+        else:
+            return self.G[root_ind][k][-1]
 
     def _is_leaf(self, node_id):
         return self.children[node_id, 0] < 0

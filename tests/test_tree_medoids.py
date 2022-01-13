@@ -3,7 +3,7 @@
 import unittest
 from dendropy import Tree
 
-from parnaslib.medoids import find_n_medoids, build_distance_functions, get_costs
+from parnaslib.medoids import find_n_medoids, build_distance_functions, get_costs, find_n_medoids_with_diversity
 
 
 class TestTreeMedoids(unittest.TestCase):
@@ -22,10 +22,11 @@ class TestTreeMedoids(unittest.TestCase):
         tree = Tree.get(data="((a:1,(b:2.5,c:2.5):1):3,(d:0.5,(e:2.5,f:3):1):2);", schema='newick')
         distance_funcs = build_distance_functions(tree)
         cost_map = get_costs(tree)
-        medoids, obj = find_n_medoids(tree, 2, distance_functions=distance_funcs, cost_map=cost_map)
+        medoids, obj, diversity = find_n_medoids_with_diversity(tree, 2, distance_functions=distance_funcs, cost_map=cost_map)
         self.assertEqual(len(medoids), 2)
         self.assertEqual(obj, 17.5)
         self.assertEqual(set(medoids), {'a', 'd'})
+        self.assertAlmostEqual(diversity[-1], 46.96969, places=4)
 
     def test_two_medoids_w_radius1(self):
         tree = Tree.get(data="((a:1,(b:2.5,c:2.5):1):3,(d:0.5,(e:2.5,f:3):1):2);", schema='newick')

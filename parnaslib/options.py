@@ -24,6 +24,9 @@ parser.add_argument('--color', type=str, action='store', dest='out_path',
                     help='PARNAS will save a colored tree, where the chosen representatives are highlighted '
                     'and the tree is color-partitioned respective to the representatives.\n'
                     'If prior centers are specified, they (and the subtrees they represent) will be colored red.')
+parser.add_argument('--diversity', type=str, action='store', dest='csv_path',
+                    help='Save diversity scores for all k (number of representatives) from 2 to n.\n'
+                         'Can be used to choose the right number of representatives for a dataset.')
 parser.add_argument('--prior-regex', type=str, action='store', dest='prior_regex',
                     help='indicate the previous centers (if any) with a regex. '
                          'The regex should match a full taxon name.\n'
@@ -100,8 +103,8 @@ def reweigh_tree_ancestral(tree_path: str, alignment_path: str, aa=False) -> Tre
                     dendropy_nexus.write(line)
         ancestral_tree = Tree.get(path=treetime_for_dendropy, schema='nexus', preserve_underscores=True)
     except Exception:
-        parser.error('Failed to infer an ancestral tree with TreeTime. '
-                     'Please see the TreeTime output log and consider inferring the ancestral states manually.')
+        parser.error('Failed to infer an ancestral substitutions with TreeTime. '
+                     'Please see the TreeTime output log.')
 
     parnas_logger.info('Re-weighing the tree based on ancestral substitutions.')
     reweighed_tree = ancestral_tree

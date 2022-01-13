@@ -43,4 +43,4 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
 
 parnas_logger.addHandler(handler)
-parnas_logger.setLevel(logging.DEBUG)
+parnas_logger.setLevel(logging.INFO)

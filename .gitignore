@@ -13,6 +13,7 @@ treetime*
 *.ppt
 *.pptx
 *.zip
+*.csv
 
 
 # Compiled Python bytecode
