@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 from dendropy import Tree
 
 from .fast_pmedian_finder import FastPMedianFinder
 from .pmedian_finder import PMedianFinder
+from .medoid_utils import find_closest_centers
+from .tree_coverage import TreeCoverage
+from ..logging import parnas_logger
 
 
 def find_n_medoids(tree: Tree, n: int, distance_functions: Dict, cost_map: Dict[str, float], max_dist=None)\
@@ -42,6 +45,33 @@ def find_n_medoids_with_diversity(tree: Tree, n: int, distance_functions: Dict, 
                 diversity_score = (obj1 - objk) / obj1 * 100  # Calculate the % of covered diversity.
                 diversity_scores.append(diversity_score)
     return medoids, objective, diversity_scores
+
+
+def find_coverage(tree: Tree, radius: float, cost_map: Dict[str, float],
+                  prior_centers: List[str] = None, fully_excluded: List[str] = None) -> Optional[List[str]]:
+    """
+    Find an optimal set of taxa that fully cover all leaves within the specified radius.
+    """
+    tree_copy = tree.clone()
+    labels_to_prune = []
+    if fully_excluded:
+        labels_to_prune.extend(fully_excluded)
+    # Find leaves that are already covered by prior centers:
+    if prior_centers:
+        closest_priors = find_closest_centers(tree, prior_centers)
+        for node, (prior_center, dist) in closest_priors.items():
+            if dist <= radius and node.taxon:
+                labels_to_prune.append(node.taxon.label)
+    # Prune all fully excluded and covered leaves:
+    if labels_to_prune:
+        if len(labels_to_prune) == len(tree_copy.leaf_nodes()):
+            return []
+        else:
+            tree_copy.prune_taxa_with_labels(labels_to_prune)
+
+    tree_coverer = TreeCoverage(tree_copy)
+    coverage = tree_coverer.find_coverage(radius, cost_map)  # Compute the coverage.
+    return coverage
 
 
 # if __name__ == "__main__":

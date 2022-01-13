@@ -48,6 +48,8 @@ class FastPMedianFinder(object):
         self.edge_lens = np.zeros(self.nnodes, dtype=np.float64)
         # Leaf lists for each node sorted by distance (+ additional properties - see Tamir 1996):
         self.leaf_lists = np.zeros((self.nnodes, self.nleaves), dtype=np.int32)
+        # Costs array:
+        self.costs = np.zeros(self.nleaves, dtype=np.float64)
 
         self.n_c = len(self.tree.leaf_nodes())
         self.G = np.array([], dtype=np.float64)
@@ -59,8 +61,6 @@ class FastPMedianFinder(object):
         self.cost_map = cost_map
         # Parameters of a distance function for each leaf stored in an array:
         self.dist_func_array = np.empty((self.nleaves, 4), dtype=np.float64)
-        # Initialize the costs array:
-        self.costs = np.zeros(self.nleaves, dtype=np.float64)
         # Number of medoids to choose:
         self.n_c = min(p, len(self.tree.leaf_nodes()))
 
@@ -111,12 +111,13 @@ class FastPMedianFinder(object):
             # Fill out dist_func and costs array.
             if node1.is_leaf():
                 self.costs[node1.index] = self.cost_map[node1.taxon.label]
-                func = self.distance_functions[node1]
-                if func.is_zero:
-                    self.dist_func_array[node1.index, 0] = 0
-                else:
-                    self.dist_func_array[node1.index, 0] = 1
-                    self.dist_func_array[node1.index, 1:] = [func.min_dist, func.max_dist, func.weight]
+                if self.distance_functions:
+                    func = self.distance_functions[node1]
+                    if func.is_zero:
+                        self.dist_func_array[node1.index, 0] = 0
+                    else:
+                        self.dist_func_array[node1.index, 0] = 1
+                        self.dist_func_array[node1.index, 1:] = [func.min_dist, func.max_dist, func.weight]
 
             # Fill out the children array.
             if not node1.is_leaf():

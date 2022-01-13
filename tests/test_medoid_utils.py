@@ -3,8 +3,9 @@
 import unittest
 from dendropy import Tree
 
-from medoids.medoid_utils import binarize_tree
-from medoids.pmedian_utils import filtered_preorder_iterator, filtered_postorder_iterator
+from parnaslib.medoids.medoid_utils import binarize_tree
+from parnaslib.medoids.pmedian_utils import filtered_preorder_iterator, filtered_postorder_iterator
+
 
 class TestMedoidUtils(unittest.TestCase):
 
