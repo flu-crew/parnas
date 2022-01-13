@@ -431,10 +431,14 @@ class PMedianDP:
         # node_distance = self.distance_functions[node](self.distance_lookup[node.index, radius_node.index]) + mindist
         node_distance = mindist  # NOTE: We assume no contribution of internal nodes!
 
-        self.G.getitem_unchecked(node_id).getitem_unchecked(q)[self.index_lookup[node_id, radius_id]] = min(
-            node_distance,
-            self._get_DP_by_list_index(node_id, q, self.index_lookup[node_id, radius_id] - 1, True)
-        )
+        if self.index_lookup[node_id, radius_id] - 1 >= 0:
+            self.G.getitem_unchecked(node_id).getitem_unchecked(q)[self.index_lookup[node_id, radius_id]] = min(
+                node_distance,
+                self._get_DP_by_list_index(node_id, q, self.index_lookup[node_id, radius_id] - 1, True)
+            )
+        else:
+            self.G.getitem_unchecked(node_id).getitem_unchecked(q)[
+                self.index_lookup[node_id, radius_id]] = node_distance
 
     def _computeF(self, q: int, node_id: int, radius_id: int):
         if self.is_ancestor_arr[node_id, radius_id]:
