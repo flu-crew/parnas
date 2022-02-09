@@ -3,7 +3,7 @@ import argparse
 import os
 import re
 import subprocess
-from argparse import RawTextHelpFormatter
+from argparse import RawTextHelpFormatter, RawDescriptionHelpFormatter
 from math import floor
 
 from Bio import AlignIO
@@ -14,40 +14,43 @@ from parnaslib import parnas_logger
 
 # Program interface:
 parser = argparse.ArgumentParser(description='Phylogenetic mAximum RepreseNtAtion Sampling (PARNAS)',
-                                 formatter_class=RawTextHelpFormatter)
+                                 formatter_class=RawDescriptionHelpFormatter)
+parser._optionals.title = "Arguments"
 parser.add_argument('-t', '--tree', type=str, action='store', dest='tree',
-                    help='path to the input tree in newick or nexus format', required=True)
+                    help='Path to the input tree in newick or nexus format.', required=True)
 parser.add_argument('-n', type=int, action='store', dest='samples',
-                    help='number of samples (representatives) to be chosen.\n' +
-                         'This argument is required unless the --cover option is specified', required=True)
-parser.add_argument('--color', type=str, action='store', dest='out_path',
-                    help='PARNAS will save a colored tree, where the chosen representatives are highlighted '
-                    'and the tree is color-partitioned respective to the representatives.\n'
-                    'If prior centers are specified, they (and the subtrees they represent) will be colored red.')
-parser.add_argument('--diversity', type=str, action='store', dest='csv_path',
-                    help='Save diversity scores for all k (number of representatives) from 2 to n.\n'
-                         'Can be used to choose the right number of representatives for a dataset.')
+                    help='Number of representatives to be chosen.\n' +
+                         'This argument is required unless the --cover option is specified')
 parser.add_argument('--prior-regex', type=str, action='store', dest='prior_regex',
-                    help='indicate the previous centers (if any) with a regex. '
+                    help='Indicate the previous representatives (if any) with a regex. '
                          'The regex should match a full taxon name.\n'
                          'PARNAS will then select centers that represent diversity '
-                         'not covered by the previous centers.', required=False)
-parser.add_argument('--threshold', type=float, action='store', dest='percent',
-                    help='sequences similarity threshold: the algorithm will choose best representatives that cover as much\n' +
-                         'diversity as possible within the given similarity threshold. ' +
-                         '--nt or --aa must be specified with this option', required=False)
+                         'not covered by the previous representatives.', required=False)
+# parser.add_argument('--threshold', type=float, action='store', dest='percent',
+#                     help='sequences similarity threshold: the algorithm will choose best representatives that cover as much\n' +
+#                          'diversity as possible within the given similarity threshold. ' +
+#                          '--nt or --aa must be specified with this option', required=False)
 parser.add_argument('--weights', type=str, action='store', dest='weights_csv',
-                    help='a CSV file specifying a weight for some or all taxa. '
+                    help='A CSV file specifying a weight for some or all taxa. '
                          'The column names must be "taxon" and "weight".\n'
                          'If a taxon is not listed in the file, its weight is assumed to be 1.')
 parser.add_argument('--radius', type=float, action='store', dest='radius',
-                    help='each representative will "cover" all leaves within the specified radius on the tree. '
+                    help='Each representative will "cover" all leaves within the specified radius on the tree. '
                          'PARNAS will then choose representatives so that the amount of uncovered diversity is minimized.',
                     required=False)
 parser.add_argument('--cover', action='store_true',
-                    help="choose the best representatives (smallest number) that cover all the tips within the specified threshold.\n" +
-                    "If specified, a --radius or --threshold argument must be specified as well",
+                    help="Choose the best representatives (smallest number) that cover all the tips within the specified radius/threshold.\n" +
+                    "If specified, a --radius or --threshold argument must be specified as well.",
                     required=False)
+
+output_options = parser.add_argument_group('Output options')
+output_options.add_argument('--color', type=str, action='store', dest='out_path',
+                    help='PARNAS will save a colored tree, where the chosen representatives are highlighted '
+                    'and the tree is color-partitioned respective to the representatives.\n'
+                    'If prior centers are specified, they (and the subtrees they represent) will be colored red.')
+output_options.add_argument('--diversity', type=str, action='store', dest='csv_path',
+                    help='Save diversity scores for all k (number of representatives) from 2 to n.\n'
+                         'Can be used to choose the right number of representatives for a dataset.')
 
 taxa_handler = parser.add_argument_group('Excluding taxa')
 taxa_handler.add_argument('--exclude', type=str, action='store', dest='exclude_regex',
@@ -56,11 +59,19 @@ taxa_handler.add_argument('--exclude', type=str, action='store', dest='exclude_r
 taxa_handler.add_argument('--exclude-fully', type=str, action='store', dest='full_regex',
                           help='Completely ignore the taxa matching this regex.')
 
-alignment_parser = parser.add_argument_group('Sequence alignment')
+alignment_parser = parser.add_argument_group('Controlling sequence divergence')
+alignment_parser.add_argument('--threshold', type=float, action='store', dest='percent',
+                              help='The sequence similarity threshold that works as --radius. ' +
+                                   'For example, "95" will imply that each representative ' +
+                                   'covers all leaves within 5%% divergence on the tree.\n'
+                                   'To account for sequence divergence, parnas will run TreeTime to infer ancestral substitutions '
+                                   'along the tree edges and re-weigh the edges based on the number of sustitutions on them.\n'
+                                   'A sequence alignment (--nt or --aa) must be specified with this option',
+                              required=False)
 alignment_parser.add_argument('--nt', type=str, action='store', dest='nt_alignment',
-                    help='path to nucleotide sequences associated with the tree tips', required=False)
+                    help='Path to nucleotide sequence alignment associated with the tree tips.', required=False)
 alignment_parser.add_argument('--aa', type=str, action='store', dest='aa_alignment',
-                    help='path to amino acid sequences associated with the tree tips', required=False)
+                    help='Path to amino acid sequence alignment associated with the tree tips.', required=False)
 # parser.add_argument('--prior', metavar='TAXON', type=str, nargs='+',
 #                     help='space-separated list of taxa that have been previously chosen as centers.\n' +
 #                          'The algorithm will choose new representatives that cover the "new" diversity in the tree')
@@ -175,9 +186,13 @@ def parse_and_validate():
                          'Make sure the tree is in the newick or nexus format.')
 
     # Validate n.
-    n = args.samples
-    if n < 1 or n >= len(tree.taxon_namespace):
-        parser.error('n should be at least 1 and smaller than the number of taxa in the tree.')
+    n = -1
+    if not args.samples and not args.cover:
+        parser.error('Please either specify the number of representatives with "-n" or use the --cover option.')
+    if args.samples:
+        n = args.samples
+        if n < 1 or n >= len(tree.taxon_namespace):
+            parser.error('n should be at least 1 and smaller than the number of taxa in the tree.')
 
     # Handle --prior-regex.
     prior_centers = None
