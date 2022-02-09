@@ -71,6 +71,8 @@ def find_coverage(tree: Tree, radius: float, cost_map: Dict[str, float],
         else:
             tree_copy.prune_taxa_with_labels(labels_to_prune)
             # parnas_logger.debug("After pruning:" + tree_copy.as_string("newick"))
+    if covered_leaves and len(covered_leaves) == len(tree_copy.leaf_nodes()):
+        return []
 
     tree_coverer = TreeCoverage(tree_copy)
     coverage = tree_coverer.find_coverage(radius, cost_map, covered_leaves)  # Compute the coverage.
