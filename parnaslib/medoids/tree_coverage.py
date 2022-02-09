@@ -28,16 +28,16 @@ class TreeCoverage(FastPMedianFinder):
     def find_coverage(self, radius: float, cost_map: Dict[str, float], covered_leaves: Set[str]) -> Optional[List[str]]:
         self.cost_map = cost_map
         self.distance_functions = None
-        self.prior_coveregae = np.full(self.nleaves, False, dtype=np.bool_)
+        self.prior_coverage = np.full(self.nleaves, False, dtype=np.bool_)
         for leaf in self.tree.leaf_nodes():
             if leaf.taxon.label in covered_leaves:
-                self.prior_coveregae[leaf.index] = True
-        parnas_logger.debug(f"Prior coverage: {self.prior_coveregae}")
+                self.prior_coverage[leaf.index] = True
+        parnas_logger.debug(f"Prior coverage: {self.prior_coverage}")
         self._initialize_lookups()
 
         postorder = np.array([node.index for node in self.tree.postorder_node_iter()], dtype=np.int32)
         coverage_jit = CoverageDP(self.children, postorder, self.is_ancestor, self.leaf_lists, self.subtree_leaves,
-                                  self.distance_lookup, self.index_lookup, self.nleaves, self.prior_coveregae,
+                                  self.distance_lookup, self.index_lookup, self.nleaves, self.prior_coverage,
                                   self.costs, self.parents, self.edge_lens, self.tree.seed_node.index, radius)
         self.G, self.F = coverage_jit.run_dp()
         # parnas_logger.debug(str(self.G.tolist()))
