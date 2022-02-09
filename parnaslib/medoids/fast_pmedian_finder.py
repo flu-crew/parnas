@@ -327,7 +327,8 @@ class PMedianDP:
             min_dist, max_dist, weight = self.dist_func_arr[node_id, 1:]
             if dist <= min_dist:
                 return 0
-            mapped_dist = dist if (dist <= max_dist) else max_dist
+            # mapped_dist = dist if (dist <= max_dist) else max_dist  # This is an older interpretation -- obsolete.
+            mapped_dist = min(dist, max_dist) - min_dist
             mapped_dist *= weight
             return mapped_dist
 

@@ -35,7 +35,7 @@ class TestTreeMedoids(unittest.TestCase):
         cost_map = get_costs(tree)
         medoids, obj = find_n_medoids(tree, 2, distance_functions=distance_funcs, cost_map=cost_map)
         self.assertEqual(len(medoids), 2)
-        self.assertEqual(obj, 13.5)
+        self.assertEqual(obj, 1.5)
         self.assertEqual(set(medoids), {'a', 'd'})
 
     def test_two_medoids_w_radius2(self):
@@ -45,7 +45,7 @@ class TestTreeMedoids(unittest.TestCase):
         cost_map = get_costs(tree)
         medoids, obj = find_n_medoids(tree, 2, distance_functions=distance_funcs, cost_map=cost_map)
         self.assertEqual(len(medoids), 2)
-        self.assertEqual(obj, 5)
+        self.assertEqual(obj, 0.5)
         self.assertEqual(set(medoids), {'a', 'd'})
 
     def test_zero_medoids_w_radius_and_prior(self):

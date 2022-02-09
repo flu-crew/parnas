@@ -81,7 +81,8 @@ class DistFunction(object):
 
         if dist <= self.min_dist:
             return 0
-        mapped_dist = dist if (dist <= self.max_dist) else self.max_dist
+        mapped_dist = min(dist, self.max_dist) - self.min_dist  # min_dist (radius) is subtracted from the distance.
+        # mapped_dist = dist if (dist <= self.max_dist) else self.max_dist
         mapped_dist *= self.weight
         return mapped_dist
 
