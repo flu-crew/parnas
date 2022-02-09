@@ -57,20 +57,23 @@ def find_coverage(tree: Tree, radius: float, cost_map: Dict[str, float],
     if fully_excluded:
         labels_to_prune.extend(fully_excluded)
     # Find leaves that are already covered by prior centers:
+    covered_leaves = set()
     if prior_centers:
         closest_priors = find_closest_centers(tree, prior_centers)
         for node, (prior_center, dist) in closest_priors.items():
             if dist <= radius and node.taxon:
-                labels_to_prune.append(node.taxon.label)
-    # Prune all fully excluded and covered leaves:
+                # labels_to_prune.append(node.taxon.label)  # Can't prune covered leaves -- they can be used as reps.
+                covered_leaves.add(node.taxon.label)
+    # Prune all fully excluded leaves:
     if labels_to_prune:
         if len(labels_to_prune) == len(tree_copy.leaf_nodes()):
             return []
         else:
             tree_copy.prune_taxa_with_labels(labels_to_prune)
+            # parnas_logger.debug("After pruning:" + tree_copy.as_string("newick"))
 
     tree_coverer = TreeCoverage(tree_copy)
-    coverage = tree_coverer.find_coverage(radius, cost_map)  # Compute the coverage.
+    coverage = tree_coverer.find_coverage(radius, cost_map, covered_leaves)  # Compute the coverage.
     return coverage
 
 

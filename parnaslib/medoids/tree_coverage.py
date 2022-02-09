@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from collections import deque
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 import numpy as np
 from dendropy import Tree, Node
@@ -25,18 +25,23 @@ class TreeCoverage(FastPMedianFinder):
     def __init__(self, tree: Tree):
         super().__init__(tree)
 
-    def find_coverage(self, radius: float, cost_map: Dict[str, float]) -> Optional[List[str]]:
+    def find_coverage(self, radius: float, cost_map: Dict[str, float], covered_leaves: Set[str]) -> Optional[List[str]]:
         self.cost_map = cost_map
         self.distance_functions = None
+        self.prior_coveregae = np.full(self.nleaves, False, dtype=np.bool_)
+        for leaf in self.tree.leaf_nodes():
+            if leaf.taxon.label in covered_leaves:
+                self.prior_coveregae[leaf.index] = True
+        parnas_logger.debug(f"Prior coverage: {self.prior_coveregae}")
         self._initialize_lookups()
 
         postorder = np.array([node.index for node in self.tree.postorder_node_iter()], dtype=np.int32)
         coverage_jit = CoverageDP(self.children, postorder, self.is_ancestor, self.leaf_lists, self.subtree_leaves,
-                                  self.distance_lookup, self.index_lookup, self.nleaves,
+                                  self.distance_lookup, self.index_lookup, self.nleaves, self.prior_coveregae,
                                   self.costs, self.parents, self.edge_lens, self.tree.seed_node.index, radius)
         self.G, self.F = coverage_jit.run_dp()
-        # parnas_logger.debug(str(self.G))
-        # parnas_logger.debug(str(self.F))
+        # parnas_logger.debug(str(self.G.tolist()))
+        # parnas_logger.debug(str(self.F.tolist()))
         parnas_logger.debug(f'Finished DP {datetime.now().strftime("%H:%M:%S")}')
 
         root_id = self.tree.seed_node.index
@@ -44,6 +49,7 @@ class TreeCoverage(FastPMedianFinder):
             parnas_logger.debug('Impossible to cover the full tree given the constraints.')
             return None
         else:
+            parnas_logger.debug(f"Optimal # of reps: {self.G[root_id][-1]}")
             # Do backtracking.
             coverage = self.coverage_backtrack(root_id)
             return coverage
@@ -65,8 +71,10 @@ class TreeCoverage(FastPMedianFinder):
             in_G, node_id, radius_id = backtrack_queue.popleft()
             if self.children[node_id, 0] < 0:
                 # We are at a leaf.
-                if in_G or radius_id == node_id:
+                if (in_G and self.G[node_id, self.index_lookup[node_id, radius_id]] > 0) or\
+                        (not in_G and self.F[node_id, self.index_lookup[node_id, radius_id]] > 0):
                     coverage.append(node_id)
+                # if in_G or radius_id == node_id:
             else:
                 # Internal node.
                 if in_G:
@@ -93,7 +101,7 @@ class TreeCoverage(FastPMedianFinder):
 
 @jitclass([('children_arr', int32[:, ::1]), ('postorder_arr', int32[::1]), ('is_ancestor_arr', bool_[:, ::1]),
            ('leaf_lists', int32[:, ::1]), ('subtree_leaves', int32[::1]), ('distance_lookup', float64[:, ::1]),
-           ('index_lookup', int32[:, ::1]), ('nleaves', int32), ('nnodes', int32),
+           ('index_lookup', int32[:, ::1]), ('nleaves', int32), ('nnodes', int32), ('prior_coverage', bool_[::1]),
            ('costs', float64[::1]), ('parents', int32[::1]), ('edge_lengths', float64[::1]), ('root_id', int32),
            ('radius', float64), ('G', float64[:, ::1]), ('F', float64[:, ::1])
            ])
@@ -103,7 +111,7 @@ class CoverageDP:
     """
 
     def __init__(self, children_arr, postorder_arr, is_ancestor_arr, leaf_lists, subtree_leaves, distance_lookup,
-                 index_lookup, nleaves: int, costs, parents, edge_lengths, root_id: int, radius: float):
+                 index_lookup, nleaves: int, prior_coverage, costs, parents, edge_lengths, root_id: int, radius: float):
         self.children_arr = children_arr
         self.postorder_arr = postorder_arr
         self.is_ancestor_arr = is_ancestor_arr
@@ -111,6 +119,7 @@ class CoverageDP:
         self.subtree_leaves = subtree_leaves
         self.distance_lookup = distance_lookup
         self.index_lookup = index_lookup
+        self.prior_coverage = prior_coverage
         self.costs = costs
         self.nleaves = nleaves
         self.nnodes = len(postorder_arr)
@@ -128,12 +137,16 @@ class CoverageDP:
             # Note that a cost of infinity indicates that a node cannot be selected.
             if self._is_leaf(node_id):
                 self.G[node_id].fill(1 if self.costs[node_id] < np.inf else np.inf)
-                for ind, rad_id in enumerate(self.leaf_lists[node_id]):
-                    self_coverage = 1 if self.costs[node_id] < np.inf else np.inf
-                    if self.costs[rad_id] < np.inf:
-                        self.F[node_id, ind] = 0 if (self.distance_lookup[node_id, rad_id] <= self.radius) else self_coverage
-                    else:
-                        self.F[node_id, ind] = np.inf
+                if self.prior_coverage[node_id]:
+                    # The leaf is already covered by prior centers.
+                    self.F[node_id].fill(0)
+                else:
+                    for ind, rad_id in enumerate(self.leaf_lists[node_id]):
+                        self_coverage = 1 if self.costs[node_id] < np.inf else np.inf
+                        if self.costs[rad_id] < np.inf:
+                            self.F[node_id, ind] = 0 if (self.distance_lookup[node_id, rad_id] <= self.radius) else self_coverage
+                        else:
+                            self.F[node_id, ind] = np.inf
             else:
                 for ind, rad_id in enumerate(self.leaf_lists[node_id]):
                     if self.is_ancestor_arr[node_id, rad_id]:
