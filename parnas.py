@@ -5,6 +5,7 @@ import colorsys
 import math
 from datetime import datetime
 from typing import List
+import sys
 
 from Bio import SeqRecord
 from dendropy import Tree
@@ -12,10 +13,11 @@ from dendropy import Tree
 from parnaslib import parnas_logger, parser, parse_and_validate
 from parnaslib.sequences import SequenceSimilarityMatrix
 from parnaslib.medoids import find_n_medoids, annotate_with_closest_centers, build_distance_functions, binarize_tree,\
-    get_costs, find_n_medoids_with_diversity
+    get_costs, find_n_medoids_with_diversity, find_coverage
 
 
 # os.environ["NUMBA_DUMP_ANNOTATION"] = "1"
+sys.setrecursionlimit(100000)
 
 
 def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, fully_excluded=None, radius=None):
@@ -98,32 +100,39 @@ def assess_clade_similarity(annotated_tree: Tree, centers: List[str], records: L
 
 
 if __name__ == '__main__':
-    args, query_tree, n, radius, prior_centers, excluded_taxa, fully_excluded = parse_and_validate()
+    args, query_tree, n, radius, prior_centers, excluded_taxa, fully_excluded, taxa_weights = parse_and_validate()
 
     # Binarize the query tree:
     binarize_tree(query_tree, edge_length=0)
 
     dist_functions = build_distance_functions(query_tree, prior_centers=prior_centers, fully_excluded=fully_excluded,
-                                              radius=radius)
+                                              radius=radius, taxa_weights=taxa_weights)
     cost_map = get_costs(query_tree, excluded_taxa, fully_excluded)
     parnas_logger.info("Inferring best representatives...")
     if not args.cover:
         representatives, value, diversity_scores = find_n_medoids_with_diversity(query_tree, n, dist_functions, cost_map,
                                                                                  max_dist=radius)
     else:
-        opt_n = -1
-        prev_value = -1
-        for n in range(1, len(query_tree.leaf_nodes()) + 1):
-            representatives, value = find_n_medoids(query_tree, n, dist_functions, cost_map, max_dist=radius)
-            if value == prev_value:
-                # The best possible value was achieved on the previous n (full coverage is impossible).
-                opt_n = n - 1
-                break
-            elif value == 0:
-                # Achieved full coverage.
-                opt_n = n
-                break
-            prev_value = value
+        # coverage = None
+        coverage = find_coverage(query_tree, radius, cost_map, prior_centers, fully_excluded)
+        if coverage is None:
+            parnas_logger.warning("The tree cannot be fully covered given the exclusion constraints.")
+            parnas_logger.warning("Falling back onto a slower method that would cover the tree as much as possible.")
+            opt_n = -1
+            prev_value = -1
+            for n in range(1, len(query_tree.leaf_nodes()) + 1):
+                representatives, value = find_n_medoids(query_tree, n, dist_functions, cost_map, max_dist=radius)
+                if value == prev_value:
+                    # The best possible value was achieved on the previous n (full coverage is impossible).
+                    opt_n = n - 1
+                    break
+                elif value == 0:
+                    # Achieved full coverage.
+                    opt_n = n
+                    break
+                prev_value = value
+        else:
+            representatives = coverage
 
     if len(representatives) == 0:
         parnas_logger.info('The diversity on the tree is already fully covered by the prior centers - no new '

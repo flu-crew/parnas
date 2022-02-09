@@ -36,9 +36,17 @@ parser.add_argument('--threshold', type=float, action='store', dest='percent',
                     help='sequences similarity threshold: the algorithm will choose best representatives that cover as much\n' +
                          'diversity as possible within the given similarity threshold. ' +
                          '--nt or --aa must be specified with this option', required=False)
+parser.add_argument('--weights', type=str, action='store', dest='weights_csv',
+                    help='a CSV file specifying a weight for some or all taxa. '
+                         'The column names must be "taxon" and "weight".\n'
+                         'If a taxon is not listed in the file, its weight is assumed to be 1.')
+parser.add_argument('--radius', type=float, action='store', dest='radius',
+                    help='each representative will "cover" all leaves within the specified radius on the tree. '
+                         'PARNAS will then choose representatives so that the amount of uncovered diversity is minimized.',
+                    required=False)
 parser.add_argument('--cover', action='store_true',
                     help="choose the best representatives (smallest number) that cover all the tips within the specified threshold.\n" +
-                    "If specified, the --threshold argument must be specified as well",
+                    "If specified, a --radius or --threshold argument must be specified as well",
                     required=False)
 
 taxa_handler = parser.add_argument_group('Excluding taxa')
@@ -117,6 +125,24 @@ def reweigh_tree_ancestral(tree_path: str, alignment_path: str, aa=False) -> Tre
     return reweighed_tree
 
 
+def validate_weights(path: str):
+    taxa_weights = {}
+    try:
+        with open(path, 'r') as weights_csv:
+            headers = [header.strip() for header in weights_csv.readline().split(',')]
+            if len(headers) != 2 or headers[0] != 'taxon' or headers[1] != 'weight':
+                parser.error('Invalid weights file: the first line of the scv file must be "taxon, weight".')
+            while True:
+                l = weights_csv.readline().strip()
+                if not l:
+                    break
+                taxon, weight_str = [value.strip() for value in l.split(',')]
+                taxa_weights[taxon] = float(weight_str)
+    except Exception:
+        parser.error('Cannot open/read the specified weights file "%s".' % path)
+    return taxa_weights
+
+
 def find_matching_taxa(tree: Tree, regex: str, title: str, none_message: str, print_taxa=True):
     matching_taxa = []
     for taxon in tree.taxon_namespace:
@@ -175,6 +201,14 @@ def parse_and_validate():
         for taxon in exclude_intersection:
             parnas_logger.warning(f'{taxon} matches both EXCLUDE_REGEX and FULL_REGEX. PARNAS will fully exclude it.')
 
+    # Validate radius.
+    radius = None
+    if args.radius is not None:
+        if args.radius <= 0:
+            parser.error('radius should be positive.')
+        else:
+            radius = args.radius
+
     # Validate alignment.
     if args.nt_alignment or args.aa_alignment:
         if args.nt_alignment and args.aa_alignment:
@@ -202,11 +236,15 @@ def parse_and_validate():
             query_tree = reweigh_tree_ancestral(args.tree, alignment_path, is_aa)
     else:
         query_tree = tree
-        radius = None
 
     # Validate cover
     if args.cover:
-        if not args.percent:
-            parser.error('To use --cover parameter, please specify --threshold option.')
+        if not args.percent and not args.radius:
+            parser.error('To use --cover parameter, please specify --threshold or --radius option.')
 
-    return args, query_tree, n, radius, prior_centers, excluded_taxa, fully_excluded
+    # Validate weights.
+    taxa_weights = None
+    if args.weights_csv:
+        taxa_weights = validate_weights(args.weights_csv)
+
+    return args, query_tree, n, radius, prior_centers, excluded_taxa, fully_excluded, taxa_weights
