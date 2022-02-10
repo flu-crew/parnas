@@ -10,7 +10,7 @@ from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from dendropy import Tree
 
-from parnaslib import parnas_logger
+from parnas import parnas_logger
 
 # Program interface:
 parser = argparse.ArgumentParser(description='Phylogenetic mAximum RepreseNtAtion Sampling (PARNAS)',

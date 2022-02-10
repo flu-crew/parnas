@@ -3,7 +3,7 @@
 import unittest
 from dendropy import Tree
 
-from parnaslib.medoids import find_n_medoids, build_distance_functions, get_costs, find_n_medoids_with_diversity
+from parnas.medoids import find_n_medoids, build_distance_functions, get_costs, find_n_medoids_with_diversity
 
 
 class TestTreeMedoids(unittest.TestCase):

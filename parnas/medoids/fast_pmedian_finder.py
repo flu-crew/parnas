@@ -11,7 +11,7 @@ from numba.experimental import jitclass
 
 from .medoid_utils import DistFunction
 from .tree_indexer import TreeIndexer
-from parnaslib.logging import parnas_logger
+from parnas.logging import parnas_logger
 
 
 class FastPMedianFinder(object):

@@ -3,8 +3,8 @@
 import unittest
 from dendropy import Tree
 
-from parnaslib.medoids.tree_medoids import find_coverage
-from parnaslib.medoids import get_costs, build_distance_functions
+from parnas.medoids.tree_medoids import find_coverage
+from parnas.medoids import get_costs, build_distance_functions
 
 
 class TestTreeCoverage(unittest.TestCase):

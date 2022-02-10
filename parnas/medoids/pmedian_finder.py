@@ -9,7 +9,7 @@ from datetime import datetime
 from .medoid_utils import DistFunction
 from .pmedian_utils import cost_function, filtered_preorder_iterator, filtered_postorder_iterator, dfs_tree_traversal
 from .tree_indexer import TreeIndexer
-from parnaslib.logging import parnas_logger
+from parnas.logging import parnas_logger
 
 
 class PMedianFinder(object):
