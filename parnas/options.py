@@ -58,6 +58,8 @@ taxa_handler.add_argument('--exclude', type=str, action='store', dest='exclude_r
                                'However, the excluded taxa will still contribute to the objective function.')
 taxa_handler.add_argument('--exclude-fully', type=str, action='store', dest='full_regex',
                           help='Completely ignore the taxa matching this regex.')
+taxa_handler.add_argument('--constrain', type=str, action='store', dest='constrain_regex',
+                          help='Ignore the taxa NOT matching this regex.')
 
 alignment_parser = parser.add_argument_group('Controlling sequence divergence')
 alignment_parser.add_argument('--threshold', type=float, action='store', dest='percent',
@@ -95,7 +97,7 @@ def reweigh_tree_ancestral(tree_path: str, alignment_path: str, aa=False) -> Tre
     :return: The re-weighed tree
     """
     # Run ancestral inference with treetime.
-    treetime_outdir = 'treetime_ancestral_%s' % tree_path
+    treetime_outdir = 'treetime_ancestral_%s' % tree_path.split(os.sep)[-1]
     if not os.path.exists(treetime_outdir):
         os.mkdir(treetime_outdir)
     treetime_log_path = '%s/treetime.log' % treetime_outdir
@@ -210,6 +212,11 @@ def parse_and_validate():
     if args.full_regex:
         fully_excluded = find_matching_taxa(tree, args.full_regex, 'Ignoring the following taxa (matched FULL_REGEX):',
                                             'No taxa matched FULL_REGEX', True)
+    if args.constrain_regex:
+        constrained_taxa = find_matching_taxa(tree, args.constrain_regex,
+                                              'Constraining to the following taxa (matched CONSTRAIN_REGEX):',
+                                              'No taxa matched CONSTRAIN_REGEX', True)
+        fully_excluded += list({taxon.label for taxon in tree.taxon_namespace}.symmetric_difference(constrained_taxa))
 
     exclude_intersection = set(excluded_taxa).intersection(set(fully_excluded))
     if exclude_intersection:

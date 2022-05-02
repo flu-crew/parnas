@@ -39,7 +39,7 @@ class LogFormatter(logging.Formatter):
 logging.setLoggerClass(ParnasLogger)
 parnas_logger = logging.getLogger('Parnas logger')
 formatter = LogFormatter()
-handler = logging.StreamHandler(sys.stdout)
+handler = logging.StreamHandler(sys.stderr)
 handler.setFormatter(formatter)
 
 parnas_logger.addHandler(handler)
