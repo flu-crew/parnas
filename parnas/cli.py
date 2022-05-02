@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
 
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import colorsys
-import math
 from datetime import datetime
 from typing import List
 import sys
+# import math
 
-from Bio import SeqRecord
+# from Bio import SeqRecord
 from dendropy import Tree
 
-from parnas import parnas_logger, parser, parse_and_validate
-from parnas.sequences import SequenceSimilarityMatrix
+from parnas import parnas_logger
+from parnas.options import parser, parse_and_validate
+# from parnas.sequences import SequenceSimilarityMatrix
 from parnas.medoids import find_n_medoids, annotate_with_closest_centers, build_distance_functions, binarize_tree,\
     get_costs, find_n_medoids_with_diversity, find_coverage
 
@@ -78,27 +76,27 @@ def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, fully_
             taxon.annotations.add_new('!color', prior_color)
 
 
-def assess_clade_similarity(annotated_tree: Tree, centers: List[str], records: List[SeqRecord.SeqRecord],
-                            sim_matrix: SequenceSimilarityMatrix):
-    for i, center in enumerate(centers):
-        print('Clade of %s:' % center)
-        max_within_dist = 0
-        min_outside_dist = math.inf
-        for leaf1 in annotated_tree.leaf_nodes():
-            if leaf1.taxon.label != center:
-                continue
-            for leaf2 in annotated_tree.leaf_nodes():
-                leaf1_ind = [i for i, rec in enumerate(records) if rec.id == leaf1.taxon.label][0]
-                leaf2_ind = [i for i, rec in enumerate(records) if rec.id == leaf2.taxon.label][0]
-                dist = 1 - sim_matrix.matrix[leaf1_ind][leaf2_ind]
-                if leaf1.annotations.get_value('center') == i and leaf2.annotations.get_value('center') == i:
-                    if dist > max_within_dist:
-                        max_within_dist = dist
-                if leaf1.annotations.get_value('center') == i and leaf2.taxon.label in centers and leaf1 != leaf2:
-                    if dist < min_outside_dist:
-                        min_outside_dist = dist
-        print('\tmax within clade: %.3f%%' % (max_within_dist * 100))
-        print('\tclosest other representative: %.3f%%' % (min_outside_dist * 100))
+# def assess_clade_similarity(annotated_tree: Tree, centers: List[str], records: List[SeqRecord.SeqRecord],
+#                             sim_matrix: SequenceSimilarityMatrix):
+#     for i, center in enumerate(centers):
+#         print('Clade of %s:' % center)
+#         max_within_dist = 0
+#         min_outside_dist = math.inf
+#         for leaf1 in annotated_tree.leaf_nodes():
+#             if leaf1.taxon.label != center:
+#                 continue
+#             for leaf2 in annotated_tree.leaf_nodes():
+#                 leaf1_ind = [i for i, rec in enumerate(records) if rec.id == leaf1.taxon.label][0]
+#                 leaf2_ind = [i for i, rec in enumerate(records) if rec.id == leaf2.taxon.label][0]
+#                 dist = 1 - sim_matrix.matrix[leaf1_ind][leaf2_ind]
+#                 if leaf1.annotations.get_value('center') == i and leaf2.annotations.get_value('center') == i:
+#                     if dist > max_within_dist:
+#                         max_within_dist = dist
+#                 if leaf1.annotations.get_value('center') == i and leaf2.taxon.label in centers and leaf1 != leaf2:
+#                     if dist < min_outside_dist:
+#                         min_outside_dist = dist
+#         print('\tmax within clade: %.3f%%' % (max_within_dist * 100))
+#         print('\tclosest other representative: %.3f%%' % (min_outside_dist * 100))
 
 
 def run_parnas_cli():

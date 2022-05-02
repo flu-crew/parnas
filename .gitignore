@@ -16,8 +16,11 @@ treetime*
 *.csv
 
 
-# Compiled Python bytecode
+# Compiled Python bytecode and related files
 *.py[cod]
+dist/
+build/
+*.egg-info/
 
 # Log files
 *.log
