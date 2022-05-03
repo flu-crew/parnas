@@ -51,6 +51,8 @@ output_options.add_argument('--color', type=str, action='store', dest='out_path'
 output_options.add_argument('--diversity', type=str, action='store', dest='csv_path',
                     help='Save diversity scores for all k (number of representatives) from 2 to n.\n'
                          'Can be used to choose the right number of representatives for a dataset.')
+output_options.add_argument('--subtree', type=str, action='store', dest='sample_tree_path',
+                    help='Prune the tree to the sampled taxa and save to the specified file in NEXUS format.')
 
 taxa_handler = parser.add_argument_group('Excluding taxa')
 taxa_handler.add_argument('--exclude', type=str, action='store', dest='exclude_regex',

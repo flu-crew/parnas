@@ -170,6 +170,13 @@ def run_parnas_cli():
             except IOError:
                 parser.error('Cant write to the specified path "%s".' % args.csv_path)
 
+    if args.sample_tree_path:
+        sample_tree = query_tree.extract_tree_with_taxa_labels(representatives)
+        assert isinstance(sample_tree, Tree)
+        sample_tree.purge_taxon_namespace()
+        for taxon in sample_tree.taxon_namespace:
+            taxon.annotations.drop(name='!color')
+        sample_tree.write(path=args.sample_tree_path, schema='nexus')
 
         # if args.nt_alignment:
         #     # Parsing assuming its swIAV HA sequences.
