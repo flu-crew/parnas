@@ -40,3 +40,8 @@ venv/
 
 # Simulation files
 sims/
+
+# Other
+tutorial/workfiles/
+testfiles/
+misc/
