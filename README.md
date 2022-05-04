@@ -1,7 +1,7 @@
 ## PARNAS ##
 PARNAS identifies taxa that best represent diversity on a phylogenetic tree
-and solves urgent needs in virology:
-- Finding representative strains for detailed analysis (phenotypic characterization, Bayesian inference, etc.)
+and solves urgent needs in virology, such as
+- Objectively finding representative strains for detailed analysis (phenotypic characterization, Bayesian inference, etc.)
 - Vaccine strain selection
 
 PARNAS can take into account previous selections and user's constraints.
@@ -12,7 +12,7 @@ More broadly PARNAS can be used to
 - Reduce redundancy among genetic/genomic sequences
 - Identify key diversity groups on a phylogeny
 
-PARNAS is faster and broader than [ADCL](https://matsen.github.io/pplacer/generated_rst/rppr_min_adcl_tree.html#rppr-min-adcl-tree) by Matsen et al. (Systematic Biology 2013), which solves a subset of PARNAS-enabled problems.
+PARNAS is faster and more flexible than [ADCL](https://matsen.github.io/pplacer/generated_rst/rppr_min_adcl_tree.html#rppr-min-adcl-tree) by Matsen et al. (Systematic Biology 2013), which provides a subset PARNAS-enabled functionality.
 
 #### Installation ####
 To install PARNAS, clone or download this project and run
@@ -23,12 +23,12 @@ PARNAS depends on dendropy and Biopython for phylogenetic and MSA manipulations,
 ## Tutorial ##
 
 We use a human H1N1 (pdm09) dataset with HA sequences collected in 2020, downloaded from [IRD](fludb.org), for this tutorial.
-The alignment and an inferred rooted tree can be found in the tutorial [folder](https://github.com/flu-crew/parnas/tutorial/H1N1_pdm_2020.zip).
+The alignment and an inferred rooted tree can be found in the tutorial [folder](tutorial/H1N1pdm_2020.zip).
 
 The basic usage of PARNAS is to find a fixed number of representative taxa, as follows:<br>
-`parnas -t H1N1_human_2020_IRD_CDS.rooted.tre -n 3 --color "H1N1_parnas_n3.tre"`<br>
+`parnas -t H1N1_human_2020_IRD.rooted.tre -n 3 --color "H1N1_parnas_n3.tre"`<br>
 PARNAS will identify 3 best representative strains and save a colored tree to H1N1_parnas_n3.tre.
-Opening this tree in FigTree, will show the representatives and their respective clusters of strains with different colors. Below is `H1N1_parnas_n3.tre` output tree, when opened in FigTree. Each color corresponds to one PARNAS-selected representative.
+Opening this tree in FigTree, will show the representatives and their respective clusters of strains with different colors. Below is the `H1N1_parnas_n3.tre` output tree, when opened in FigTree. Each color corresponds to one PARNAS-selected representative and the area of the tree it represents.
 
 <center>
 <img src="tutorial/figures/H1N1_parnas_n3.png">
@@ -39,16 +39,16 @@ Additionally, in the output PARNAS specifies the amount of overall diversity cov
 #### Determining the right number of representatives ####
 The "diversity covered" metric calculated by PARNAS is a useful tool to determine how many representatives is sufficient.
 To find the amount of diversity covered by different numbers of representatives, you can choose a large enough n, e.g., n=20, and run<br>
-`parnas -t H1N1_human_2020_IRD_CDS.rooted.tre -n 20 --diversity "diversity_scores.csv"`<br>
-This command will save a CSV file with optimal diversity scores for n between 2 and 20. For our dataset, it shows that only 6 representative strains are needed to cover over 60% of the overall diversity. Opening the CSV file in Excel/Numbers, one can then construct the following graph:
+`parnas -t H1N1_human_2020_IRD.rooted.tre -n 20 --diversity "diversity_scores.csv"`<br>
+This command will save a CSV file with optimal diversity scores for n between 2 and 20. For our dataset, it shows that only 6 representative strains are needed to cover over 60% of the overall diversity. Opening the CSV file in Excel/Numbers, one can then construct the following graph to better visualize teh data.
 
 <center>
 <img src="tutorial/figures/diversity_covered.png" width="450px">
 </center>
 
 #### Using prior representatives ####
-It often may be useful to find new representatives and specify the previous strains/taxa that were treated as representatives. In our H1N1 dataset, we included two latest H1N1 vaccine strains, A/Wisconsin/588/2019 and A/Hawaii/70/2019. Using PARNAS we can fix these two strains as 'prior' representatives and find new representatives, so that old and new representatives work optimally together. We use `--prior-regex` option to notify PARNAS of the two vaccine strains:<br>
-`parnas -t H1N1_human_2020_IRD_CDS.rooted.tre -n 3 --prior-regex "Vaccine.*" --color "H1N1_parnas_n3_vaccines.tre"`<br>
+It often may be useful to find new representatives, while specifying the previous taxa/strains that were treated as representatives. In our H1N1 dataset, we included two latest H1N1 vaccine strains, A/Wisconsin/588/2019 and A/Hawaii/70/2019. Using PARNAS we can fix these two strains as 'prior' representatives and find new representatives, so that old and new representatives work optimally together. We use `--prior` option to notify PARNAS of the two vaccine strains by specifying a regular expression matching their names in our dataset (which start with "Vaccine|"):<br>
+`parnas -t H1N1_human_2020_IRD.rooted.tre -n 3 --prior "Vaccine.*" --color "H1N1_parnas_n3_vaccines.tre"`<br>
 The result is shown in a tree below. PARNAS colors the prior representatives and the respective parts of the tree in red.
 
 <center>
@@ -56,23 +56,27 @@ The result is shown in a tree below. PARNAS colors the prior representatives and
 </center>
 
 #### Specifying a coverage radius ####
-You can notify PARNAS that a single taxon 'covers' other taxa within a fixed radius (using `--radius` option). PARNAS will then find representatives, which together cover as much diversity as possible. Alternatively, PARNAS can find the minimal number of representatives that jointly cover *all* diversity on the tree (`--cover` option). This feature is motivated by applications in virology, where evolutionary distance often correlates with antigenic drift. For example, in swine influenza A virus research, 5% (amino acid) divergence between HA sequences is considered a correlate of loss in cross-reactivity between strains. Therefore, specifying a radius on a tree corresponding to ~4% sequence divergence, can help identify good vaccine candidates.
+You can notify PARNAS that a single taxon 'covers' other taxa within a fixed radius (using `--radius` option). PARNAS will then find representatives, which together cover as much diversity as possible. Alternatively, PARNAS can find the minimum number of representatives that jointly cover *all* diversity on the tree (`--cover` option). This feature can be used to optimally reduce the redundancy in your dataset. Moreover, this feature was motivated by applications in virology, where evolutionary distance often correlates with antigenic drift. For example, in swine influenza A virus research, 5% (amino acid) divergence between HA sequences is considered a correlate of loss in cross-reactivity between strains. Therefore, specifying a radius on a tree corresponding to ~4% sequence divergence, can help identify good vaccine candidates.
 
-To further facilitate this process, PARNAS can take amino acid sequence alignment and pass it to TreeTime to find ancestral AA substitutions along the tree edges. It will then re-scale the tree, so that edge lengths will reflect the number of substitutions along that edge, which will help specify a 4% divergence radius in terms of the # of amino acid substitutions.
+To further facilitate this process, PARNAS can take amino acid sequence alignment and pass it to [TreeTime](https://treetime.readthedocs.io/en/latest/) to find ancestral AA substitutions along the tree edges. It will then re-scale the tree, so that edge lengths will reflect the number of substitutions along that edge, which will help specify a 4% divergence radius in terms of the # of amino acid substitutions.
 
-`parnas -t H1N1_human_2020_IRD_CDS.rooted.tre --cover --threshold 96 --aa H1N1_human_2020_IRD_CDS.ha1.aln --color "parnas_96coverage.tre"`
+`parnas -t H1N1_human_2020_IRD.rooted.tre --cover --threshold 96 --aa H1N1_human_2020_IRD.ha1.aln --color "parnas_96coverage.tre"`
 
 In the above command we pass the AA alignment of HA1 sequences from our dataset with the `--aa` option, and specify the 96% threshold (i.e., 4% sequence divergence). Note that `--threshold` works as a substitute for `--radius`, when you would like PARNAS to use the alignment information and re-scale the tree. Running this command will show that a single strain (A/Wisconsin/32/2020) is sufficient to cover all diversity on our tree.
 
-Next, we use a more restrictive threshold of 97% and also add the vaccine strains as the prior representatives. This way PARNAS can indicate the areas of the tree, which are not covered by the vaccine strains and suggest new representatives to solve this issue.
+Next, we use a more restrictive threshold of 97% and also add the vaccine strains as the prior representatives. This way PARNAS can indicate the areas of the tree, which are not covered by the vaccine strains and suggest new representatives to complement the vaccine strains.
 
-`parnas -t H1N1_human_2020_IRD_CDS.rooted.tre --cover --threshold 97 --aa H1N1_human_2020_IRD_CDS.ha1.aln --color "parnas_97coverage_vaccines.tre" --prior-regex "Vaccine.*"`
+`parnas -t H1N1_human_2020_IRD.rooted.tre --cover --threshold 97 --aa H1N1_human_2020_IRD.ha1.aln --color "parnas_97coverage_vaccines.tre" --prior "Vaccine.*"`
 
-Opening `parnas_97coverage_vaccines.tre` in FigTree will show us that there are two clades in the tree, which are not covered by vaccine strains (the green and blue clades).
+Opening `parnas_97coverage_vaccines.tre` in FigTree will show us that there are two clades in the tree, which are not covered by vaccine strains (the green and blue clades). Note that the tree was re-scaled by PARNAS.
 
 <center>
 <img src="tutorial/figures/H1N1_parnas_97coverage_vaccines.png">
 </center>
+
+#### Other functionality ####
+- Specify weights for taxa, so that taxa/strains with larger weights are better represented.
+- Flexibly exclude taxa to either fully ignore them or to not consider them as potential representatives.
 
 ## PARNAS usage##
 
@@ -83,21 +87,31 @@ Opening `parnas_97coverage_vaccines.tre` in FigTree will show us that there are 
 | Option | Description |
 | --- | --- |
 |--radius | Specify a radius (distance on a tree) so that every representative covers all diversity within that radius. PARNAS will then choose representatives that optimally cover as much diversity as possible |
-| --prior-regex | Specify prior representatives with a regex. PARNAS will then identify representatives of 'new' diversity |
+| --prior | Specify prior representatives with a regex. PARNAS will then identify representatives of 'new' diversity |
 | --weights | Add a CSV file specifying weights for some or all taxa/strains |
 | --cover | Instead of specifying the number of representatives, specify the radius and PARNAS will find representative that cover all diversity on the tree |
 
-*Output options*
+*Output options (combining output options is allowed)*
 
 | Option | Description |
 | --- | --- |
+| --color | Specify an output path, where a colored tree will be saved. PARNAS will highlight the chosen representatives and color-partition the tree respective to the representatives. If prior representatives are specified, they (and the subtrees they represent) will be colored red.|
+| --diversity | Specify an output path, where a CSV will be saved with diversity scores for all k (number of representatives) from 2 to n. Can be used to choose the right number of representatives for a dataset |
+| --subtree | Specify a path, where a subtree with the sampled representatives will be saved (in NEXUS format) |
+
 
 *Options to exclude/constrain taxa*
 
 | Option | Description |
 | --- | --- |
+| --exclude | REGEX. Matching taxa will not be chosen as representatives, but they will contribute to the objective function |
+| --exclude-fully | REGEX. Matching taxa will be completely ignored by PARNAS |
+| --constrain | REGEX. Opposite to '--exclude-fully', i.e., only the matching taxa will be considered by PARNAS |
 
 *Options to control sequence divergence*
 
 | Option | Description |
 | --- | --- |
+| --threshold | Number between 0 and 100. The sequence similarity threshold that works as --radius. For example, "95" will imply that each representative covers all leaves within 5% divergence on the tree. To account for sequence divergence, PARNAS will run TreeTime to infer ancestral substitutions along the tree edges and re-weigh the edges based on the number of sustitutions on them. A sequence alignment (--nt or --aa) must be specified with this option |
+| --nt | Path to nucleotide sequence alignment associated with the tree tips |
+| --aa | Path to amino acid sequence alignment associated with the tree tips |
