@@ -11,7 +11,7 @@ setup(
         'numba==0.54.1',
         'biopython>=1.67',
         'dendropy>=4.5.0',
-        'phylo-treetime>=0.8.0'
+        'phylo-treetime>=0.8.0,<=0.8.6'
     ],
     name="parnas",
     version=__version__,
