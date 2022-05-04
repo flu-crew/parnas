@@ -21,7 +21,7 @@ parser.add_argument('-t', '--tree', type=str, action='store', dest='tree',
 parser.add_argument('-n', type=int, action='store', dest='samples',
                     help='Number of representatives to be chosen.\n' +
                          'This argument is required unless the --cover option is specified')
-parser.add_argument('--prior-regex', type=str, action='store', dest='prior_regex',
+parser.add_argument('--prior', type=str, action='store', dest='prior_regex',
                     help='Indicate the previous representatives (if any) with a regex. '
                          'The regex should match a full taxon name.\n'
                          'PARNAS will then select centers that represent diversity '
