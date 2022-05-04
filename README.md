@@ -40,7 +40,7 @@ Additionally, in the output PARNAS specifies the amount of overall diversity cov
 The "diversity covered" metric calculated by PARNAS is a useful tool to determine how many representatives is sufficient.
 To find the amount of diversity covered by different numbers of representatives, you can choose a large enough n, e.g., n=20, and run<br>
 `parnas -t H1N1_human_2020_IRD.rooted.tre -n 20 --diversity "diversity_scores.csv"`<br>
-This command will save a CSV file with optimal diversity scores for n between 2 and 20. For our dataset, it shows that only 6 representative strains are needed to cover over 60% of the overall diversity. Opening the CSV file in Excel/Numbers, one can then construct the following graph to better visualize teh data.
+This command will save a CSV file with optimal diversity scores for n between 2 and 20. For our dataset, it shows that only 6 representative strains are needed to cover over 60% of the overall diversity. Opening the CSV file in Excel/Numbers, one can then construct the following graph to better visualize the data.
 
 <center>
 <img src="tutorial/figures/diversity_covered.png" width="450px">
@@ -78,9 +78,13 @@ Opening `parnas_97coverage_vaccines.tre` in FigTree will show us that there are 
 - Specify weights for taxa, so that taxa/strains with larger weights are better represented.
 - Flexibly exclude taxa to either fully ignore them or to not consider them as potential representatives.
 
-## PARNAS usage##
+## PARNAS usage ##
 
 `parnas -t TREE [-n SAMPLES] [other options]`
+
+The input tree should be in nexus or newick format.
+
+For a detailed reference on PARNAS options run `parnas -h` or see below.
 
 *General options*
 
@@ -112,6 +116,6 @@ Opening `parnas_97coverage_vaccines.tre` in FigTree will show us that there are 
 
 | Option | Description |
 | --- | --- |
-| --threshold | Number between 0 and 100. The sequence similarity threshold that works as --radius. For example, "95" will imply that each representative covers all leaves within 5% divergence on the tree. To account for sequence divergence, PARNAS will run TreeTime to infer ancestral substitutions along the tree edges and re-weigh the edges based on the number of sustitutions on them. A sequence alignment (--nt or --aa) must be specified with this option |
+| --threshold | Number between 0 and 100. The sequence similarity threshold that works as --radius. For example, "95" will imply that each representative covers all leaves within 5% divergence on the tree. To account for sequence divergence, PARNAS will run TreeTime to infer ancestral substitutions along the tree edges and re-weigh the edges based on the number of substitutions on them. A sequence alignment (--nt or --aa) must be specified with this option |
 | --nt | Path to nucleotide sequence alignment associated with the tree tips |
 | --aa | Path to amino acid sequence alignment associated with the tree tips |
