@@ -42,6 +42,11 @@ parser.add_argument('--cover', action='store_true',
                     help="Choose the best representatives (smallest number) that cover all the tips within the specified radius/threshold.\n" +
                     "If specified, a --radius or --threshold argument must be specified as well.",
                     required=False)
+parser.add_argument('--binary', action='store_true',
+                    help="To be used with --radius. Instead of covering as much diversity as possible, "
+                         "PARNAS will cover as many tips as possible within the radius. "
+                         "Each leaf will have a binary contribution to the objective: 0 if covered, else its weight.",
+                    required=False)
 
 output_options = parser.add_argument_group('Output options')
 output_options.add_argument('--color', type=str, action='store', dest='out_path',
@@ -130,6 +135,7 @@ def reweigh_tree_ancestral(tree_path: str, alignment_path: str, aa=False) -> Tre
                      'Please see the TreeTime output log.')
 
     parnas_logger.info('Re-weighing the tree based on ancestral substitutions.')
+    reweighed_tree_path = '%s/ancestral_reweighed.tre' % treetime_outdir
     reweighed_tree = ancestral_tree
     for node in reweighed_tree.nodes():
         edge_length = 0
@@ -137,6 +143,7 @@ def reweigh_tree_ancestral(tree_path: str, alignment_path: str, aa=False) -> Tre
         if mutations_str and mutations_str.strip():
             edge_length = mutations_str.count('||') + 1
         node.edge_length = edge_length
+    reweighed_tree.write(path=reweighed_tree_path, schema='newick')
     return reweighed_tree
 
 
@@ -261,6 +268,10 @@ def parse_and_validate():
     else:
         query_tree = tree
 
+    is_binary = args.binary
+    if is_binary and not radius:
+        is_binary = False
+
     # Validate cover
     if args.cover:
         if not args.percent and not args.radius:
@@ -271,4 +282,4 @@ def parse_and_validate():
     if args.weights_csv:
         taxa_weights = validate_weights(args.weights_csv)
 
-    return args, query_tree, n, radius, prior_centers, excluded_taxa, fully_excluded, taxa_weights
+    return args, query_tree, n, radius, is_binary, prior_centers, excluded_taxa, fully_excluded, taxa_weights

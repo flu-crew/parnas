@@ -66,8 +66,9 @@ def find_closest_centers(tree: Tree, centers: List[str]) -> Dict[Node, Tuple[str
 
 
 class DistFunction(object):
-    def __init__(self, is_zero, min_dst=None, max_dist=None, weight=None):
+    def __init__(self, is_zero, min_dst=None, max_dist=None, weight=None, is_binary=False):
         self.is_zero = is_zero
+        self.is_binary = is_binary
         if not is_zero:
             assert None not in (min_dst, max_dist, weight)
             assert min_dst <= max_dist
@@ -81,13 +82,16 @@ class DistFunction(object):
 
         if dist <= self.min_dist:
             return 0
+        if self.min_dist > 0 and self.is_binary:
+            return self.weight  # binary means that if a leaf is not covered (dist > min_dist), then contribution is the weight.
+
         mapped_dist = min(dist, self.max_dist) - self.min_dist  # min_dist (radius) is subtracted from the distance.
         # mapped_dist = dist if (dist <= self.max_dist) else self.max_dist
         mapped_dist *= self.weight
         return mapped_dist
 
 
-def build_distance_functions(tree: Tree, radius=None, prior_centers=None, fully_excluded=None,
+def build_distance_functions(tree: Tree, radius=None, is_binary=False, prior_centers=None, fully_excluded=None,
                              taxa_weights: Dict[str, float]=None) -> Dict[Node, DistFunction]:
     if prior_centers:
         # dendropy_tree = Tree.get(data=tree.format(fmt='newick'), schema='newick',
@@ -106,7 +110,7 @@ def build_distance_functions(tree: Tree, radius=None, prior_centers=None, fully_
             if excluded or max_dist <= min_dist:
                 function = DistFunction(is_zero=True)
             else:
-                function = DistFunction(False, min_dist, max_dist, weight)
+                function = DistFunction(False, min_dist, max_dist, weight, is_binary)
         else:
             function = DistFunction(is_zero=True)  # non-terminal nodes do not contribute to the objective function.
 

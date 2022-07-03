@@ -60,7 +60,7 @@ class FastPMedianFinder(object):
         self.distance_functions = distance_functions
         self.cost_map = cost_map
         # Parameters of a distance function for each leaf stored in an array:
-        self.dist_func_array = np.empty((self.nleaves, 4), dtype=np.float64)
+        self.dist_func_array = np.empty((self.nleaves, 5), dtype=np.float64)
         # Number of medoids to choose:
         self.n_c = min(p, len(self.tree.leaf_nodes()))
 
@@ -117,7 +117,8 @@ class FastPMedianFinder(object):
                         self.dist_func_array[node1.index, 0] = 0
                     else:
                         self.dist_func_array[node1.index, 0] = 1
-                        self.dist_func_array[node1.index, 1:] = [func.min_dist, func.max_dist, func.weight]
+                        self.dist_func_array[node1.index, 1:] = [func.min_dist, func.max_dist, func.weight,
+                                                                 1 if func.is_binary else 0]
 
             # Fill out the children array.
             if not node1.is_leaf():
@@ -324,9 +325,11 @@ class PMedianDP:
         if self.dist_func_arr[node_id, 0] < 0.5:
             return 0
         else:
-            min_dist, max_dist, weight = self.dist_func_arr[node_id, 1:]
+            min_dist, max_dist, weight, is_binary = self.dist_func_arr[node_id, 1:]
             if dist <= min_dist:
                 return 0
+            if min_dist > 0 and is_binary > 0.5:
+                return weight
             # mapped_dist = dist if (dist <= max_dist) else max_dist  # This is an older interpretation -- obsolete.
             mapped_dist = min(dist, max_dist) - min_dist
             mapped_dist *= weight

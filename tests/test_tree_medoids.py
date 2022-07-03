@@ -48,6 +48,16 @@ class TestTreeMedoids(unittest.TestCase):
         self.assertEqual(obj, 0.5)
         self.assertEqual(set(medoids), {'a', 'd'})
 
+    def test_two_medoids_w_radius2_binary(self):
+        tree = Tree.get(data="((a:1,(b:2.5,c:2.5):1):3,(d:0.5,(e:2.5,f:3.5):1):2);", schema='newick')
+        radius = 4.5  # d should cover e; a should cover b and c.
+        distance_funcs = build_distance_functions(tree, radius=radius, is_binary=True)
+        cost_map = get_costs(tree)
+        medoids, obj = find_n_medoids(tree, 2, distance_functions=distance_funcs, cost_map=cost_map)
+        self.assertEqual(len(medoids), 2)
+        self.assertEqual(obj, 1)
+        self.assertEqual(set(medoids), {'a', 'd'})
+
     def test_zero_medoids_w_radius_and_prior(self):
         tree = Tree.get(data="((a:1,(b:2.5,c:2.5):1):3,(d:0.5,(e:2.5,f:3.5):1):2);", schema='newick')
         radius = 6  # everything is covered by a and f
