@@ -7,8 +7,8 @@ with open("README.md", "r") as fh:
 
 setup(
     install_requires=[
-        'numpy<1.21,>=1.17',
-        'numba==0.54.1',
+        'numpy<=1.22,>=1.17',
+        'numba==0.55.2',
         'biopython>=1.67',
         'dendropy>=4.5.0',
         'phylo-treetime>=0.8.0,<=0.8.6'
