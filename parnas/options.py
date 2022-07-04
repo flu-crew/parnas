@@ -60,13 +60,16 @@ output_options.add_argument('--subtree', type=str, action='store', dest='sample_
                     help='Prune the tree to the sampled taxa and save to the specified file in NEXUS format.')
 
 taxa_handler = parser.add_argument_group('Excluding taxa')
-taxa_handler.add_argument('--exclude', type=str, action='store', dest='exclude_regex',
-                          help='Prohibits parnas to choose reoresentatives from the taxa matching this regex. '
+taxa_handler.add_argument('--exclude-rep', type=str, action='store', dest='exclude_regex',
+                          help='Prohibits parnas to choose representatives from the taxa matching this regex. '
                                'However, the excluded taxa will still contribute to the objective function.')
+taxa_handler.add_argument('--exclude-obj', type=str, action='store', dest='eobj_regex',
+                          help='Matching taxa can be selected, but will not contribute to the objective function. '
+                               'Can be used if one wants to select taxa from a reference set.')
 taxa_handler.add_argument('--exclude-fully', type=str, action='store', dest='full_regex',
                           help='Completely ignore the taxa matching this regex.')
-taxa_handler.add_argument('--constrain', type=str, action='store', dest='constrain_regex',
-                          help='Ignore the taxa NOT matching this regex.')
+taxa_handler.add_argument('--constrain-fully', type=str, action='store', dest='constrain_regex',
+                          help='Completely ignore the taxa NOT matching this regex.')
 
 alignment_parser = parser.add_argument_group('Controlling sequence divergence')
 alignment_parser.add_argument('--threshold', type=float, action='store', dest='percent',
@@ -214,6 +217,7 @@ def parse_and_validate():
     # Validate exclusions.
     excluded_taxa = []
     fully_excluded = []
+    obj_excluded = []
     if args.exclude_regex:
         excluded_taxa = find_matching_taxa(tree, args.exclude_regex,
                                            'Not considering the following as representatives (matched EXCLUDE_REGEX):',
@@ -221,6 +225,10 @@ def parse_and_validate():
     if args.full_regex:
         fully_excluded = find_matching_taxa(tree, args.full_regex, 'Ignoring the following taxa (matched FULL_REGEX):',
                                             'No taxa matched FULL_REGEX', True)
+    if args.eobj_regex:
+        obj_excluded = find_matching_taxa(tree, args.eobj_regex,
+                                          'Not contributing to the objective (matched EOBJ_REGEX):',
+                                          'No taxa matched EOBJ_REGEX')
     if args.constrain_regex:
         constrained_taxa = find_matching_taxa(tree, args.constrain_regex,
                                               'Constraining to the following taxa (matched CONSTRAIN_REGEX):',
@@ -282,4 +290,4 @@ def parse_and_validate():
     if args.weights_csv:
         taxa_weights = validate_weights(args.weights_csv)
 
-    return args, query_tree, n, radius, is_binary, prior_centers, excluded_taxa, fully_excluded, taxa_weights
+    return args, query_tree, n, radius, is_binary, prior_centers, excluded_taxa, obj_excluded, fully_excluded, taxa_weights

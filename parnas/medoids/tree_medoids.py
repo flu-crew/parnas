@@ -47,8 +47,8 @@ def find_n_medoids_with_diversity(tree: Tree, n: int, distance_functions: Dict, 
     return medoids, objective, diversity_scores
 
 
-def find_coverage(tree: Tree, radius: float, cost_map: Dict[str, float],
-                  prior_centers: List[str] = None, fully_excluded: List[str] = None) -> Optional[List[str]]:
+def find_coverage(tree: Tree, radius: float, cost_map: Dict[str, float], prior_centers: List[str] = None,
+                  fully_excluded: List[str] = None, obj_excluded: List[str] = None) -> Optional[List[str]]:
     """
     Find an optimal set of taxa that fully cover all leaves within the specified radius.
     """
@@ -64,6 +64,9 @@ def find_coverage(tree: Tree, radius: float, cost_map: Dict[str, float],
             if dist <= radius and node.taxon:
                 # labels_to_prune.append(node.taxon.label)  # Can't prune covered leaves -- they can be used as reps.
                 covered_leaves.add(node.taxon.label)
+    if obj_excluded:  # Also ignore taxa that are excluded from the objective
+        for label in obj_excluded:
+            covered_leaves.add(label)
     # Prune all fully excluded leaves:
     if labels_to_prune:
         if len(labels_to_prune) == len(tree_copy.leaf_nodes()):

@@ -100,13 +100,14 @@ def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, fully_
 
 
 def run_parnas_cli():
-    args, query_tree, n, radius, is_binary, prior_centers, excluded_taxa, fully_excluded, taxa_weights = parse_and_validate()
+    args, query_tree, n, radius, is_binary, prior_centers, excluded_taxa, obj_excluded, fully_excluded, taxa_weights = parse_and_validate()
 
     # Binarize the query tree:
     binarize_tree(query_tree, edge_length=0)
 
     dist_functions = build_distance_functions(query_tree, prior_centers=prior_centers, is_binary=is_binary,
-                                              fully_excluded=fully_excluded, radius=radius, taxa_weights=taxa_weights)
+                                              fully_excluded=fully_excluded + obj_excluded, radius=radius,
+                                              taxa_weights=taxa_weights)
     cost_map = get_costs(query_tree, excluded_taxa, fully_excluded)
     parnas_logger.info("Inferring best representatives...")
     if not args.cover:
@@ -114,7 +115,7 @@ def run_parnas_cli():
                                                                                  max_dist=radius)
     else:
         # coverage = None
-        coverage = find_coverage(query_tree, radius, cost_map, prior_centers, fully_excluded)
+        coverage = find_coverage(query_tree, radius, cost_map, prior_centers, fully_excluded, obj_excluded)
         if coverage is None:
             parnas_logger.warning("The tree cannot be fully covered given the exclusion constraints.")
             parnas_logger.warning("Falling back onto a slower method that would cover the tree as much as possible.")

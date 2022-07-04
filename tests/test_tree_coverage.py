@@ -50,3 +50,11 @@ class TestTreeCoverage(unittest.TestCase):
         coverage = find_coverage(tree, radius, cost_map=cost_map, prior_centers=prior)
         print(coverage)
         self.assertEqual(len(coverage), 1)
+
+    def test_coverage_w_obj_rep_exclusion(self):
+        tree = Tree.get(data="(((a:1,(R1:1,(R2:1,R3:1):1):0.5):0.5,b:1):2,((c:0.5,R4:2):0.5,d:1):1);", schema='newick')
+        radius = 3.7
+        cost_map = get_costs(tree, excluded=['a', 'b', 'c', 'd'])
+        coverage = find_coverage(tree, radius, cost_map=cost_map, obj_excluded=['R1', 'R2', 'R3', 'R4'])
+        self.assertEqual(len(coverage), 2)
+        self.assertEqual(set(coverage), {'R1', 'R4'})

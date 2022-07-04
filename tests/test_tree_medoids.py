@@ -58,6 +58,19 @@ class TestTreeMedoids(unittest.TestCase):
         self.assertEqual(obj, 1)
         self.assertEqual(set(medoids), {'a', 'd'})
 
+    def test_medoids_w_obj_rep_exclusion(self):
+        tree = Tree.get(data="(((a:1,(R1:1,(R2:1,R3:1):1):0.5):0.5,b:1):2,((c:0.5,R4:2):0.5,d:1):1);", schema='newick')
+        distance_funcs = build_distance_functions(tree, fully_excluded=['R1', 'R2', 'R3', 'R4'])
+        cost_map = get_costs(tree, excluded=['a', 'b', 'c', 'd'])
+        medoids, obj = find_n_medoids(tree, 1, distance_functions=distance_funcs, cost_map=cost_map)
+        self.assertEqual(len(medoids), 1)
+        self.assertEqual(obj, 17.5)
+        self.assertEqual(set(medoids), {'R1'})
+        medoids, obj = find_n_medoids(tree, 2, distance_functions=distance_funcs, cost_map=cost_map)
+        self.assertEqual(len(medoids), 2)
+        self.assertEqual(obj, 11.5)
+        self.assertEqual(set(medoids), {'R1', 'R4'})
+
     def test_zero_medoids_w_radius_and_prior(self):
         tree = Tree.get(data="((a:1,(b:2.5,c:2.5):1):3,(d:0.5,(e:2.5,f:3.5):1):2);", schema='newick')
         radius = 6  # everything is covered by a and f

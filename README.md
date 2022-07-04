@@ -108,7 +108,8 @@ For a detailed reference on PARNAS options run `parnas -h` or see below.
 
 | Option | Description |
 | --- | --- |
-| --exclude | REGEX. Matching taxa will not be chosen as representatives, but they will contribute to the objective function |
+| --exclude-rep | REGEX. Matching taxa will not be chosen as representatives, but they will contribute to the objective function |
+| --exclude-obj | REGEX. Matching taxa can be selected, but will not contribute to the objective function (the opposite of --exclude-rep) |
 | --exclude-fully | REGEX. Matching taxa will be completely ignored by PARNAS |
 | --constrain | REGEX. Opposite to '--exclude-fully', i.e., only the matching taxa will be considered by PARNAS |
 
