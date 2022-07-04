@@ -17,6 +17,7 @@ setup(
     version=__version__,
     author="Alexey Markin, Sanket Wagle, Siddhant Grover",
     author_email="alex.markin57@gmail.com",
+    license='MIT',
     description="Representative taxon sampling from phylogenetic trees",
     long_description=long_description,
     long_description_content_type="text/markdown",
