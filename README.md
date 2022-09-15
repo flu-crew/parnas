@@ -1,25 +1,35 @@
 ## PARNAS ##
 PARNAS identifies taxa that best represent diversity on a phylogenetic tree
-and solves urgent needs in virology, such as
-- Objectively finding representative strains for detailed analysis (phenotypic characterization, Bayesian inference, etc.)
-- Vaccine strain selection
-
-PARNAS can take into account previous selections and user's constraints.
-Additionally, PARNAS is flexible in allowing
-arbitrary weighing of taxa, e.g., based on predicted fitness/antigenic drift.
-More broadly PARNAS can be used to
+and can be used to
+- Select most representative taxa
 - Downsample a large phylogeny while optimally preserving the underlying diversity
 - Reduce redundancy among genetic/genomic sequences
 - Identify key diversity groups on a phylogeny
 
-PARNAS is faster and more flexible than [ADCL](https://matsen.github.io/pplacer/generated_rst/rppr_min_adcl_tree.html#rppr-min-adcl-tree) by Matsen et al. (Systematic Biology 2013), which provides a subset PARNAS-enabled functionality.
+PARNAS solves urgent needs in virology/microbiology, such as
+- Objectively finding representative strains for in-depth analyses (phenotypic characterization, Bayesian inference, etc.)
+- Objective and flexible vaccine strain selection
 
-#### Installation ####
-To install PARNAS, clone or download this project and run
-`python setup.py install`. Note that PARNAS requires Python 3.7 or higher.
+PARNAS can take into account previously used representatives and a wide range of user's constraints.
+Additionally, PARNAS is flexible in allowing
+arbitrary weighing of taxa, e.g., based on predicted fitness/antigenic drift. Finally, PARNAS allows you to fine-tune 
+representation definition with a user-defined coverage radius.
+
+
+Alternative methods currently exist to select taxa on phylogenetic trees (ADCL), or to reduce the number of taxa in a phylogeny (Treemer).
+PARNAS is faster and more versatile than [ADCL](https://matsen.github.io/pplacer/generated_rst/rppr_min_adcl_tree.html#rppr-min-adcl-tree) by Matsen et al. (Systematic Biology 2013). 
+Similarly, PARNAS is faster than [Treemmer](https://github.com/fmenardo/Treemmer) (Menardo et al., BMC Bioinformatics 2018), 
+and the objective allows for reproducible and interpretable selections that are optimally representative.
+
+### Installation ###
+PARNAS is available in PyPi and can be installed as
+`pip install parnas`. Note that PARNAS requires Python 3.7 or higher.
 
 PARNAS depends on dendropy and Biopython for phylogenetic and MSA manipulations, numpy and numba for just-in-time compilation of the critical algorithms into machine code, and (optionally) phylo-treetime to infer ancestral substitutions along tree edges. These dependencies will be installed automatically.
 
+
+Alternatively, to install PARNAS, clone or download this project and run
+`python setup.py install`.
 ## Tutorial ##
 
 We use a human H1N1 (pdm09) dataset with HA sequences collected in 2020, downloaded from [IRD](fludb.org), for this tutorial.
