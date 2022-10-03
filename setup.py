@@ -7,11 +7,11 @@ with open("README.md", "r") as fh:
 
 setup(
     install_requires=[
-        'numpy<=1.22,>=1.17',
+        'numpy<1.23,>=1.17',
         'numba==0.55.2',
         'biopython>=1.67',
         'dendropy>=4.5.0',
-        'phylo-treetime>=0.8.0,<=0.8.6'
+        'phylo-treetime>=0.9.4'
     ],
     name="parnas",
     version=__version__,
