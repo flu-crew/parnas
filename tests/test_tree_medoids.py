@@ -114,6 +114,15 @@ class TestTreeMedoids(unittest.TestCase):
         self.assertTrue(medoids[0] in {'b', 'c'})
         self.assertEqual(obj, 16)
 
+    def test_zero_weight(self):
+        tree = Tree.get(data="(((a:2,b:1):2,e:1):1,(c:0.5,d:2):1);", schema='newick')
+        weights = {'a': 0}
+        distance_funcs = build_distance_functions(tree, taxa_weights=weights)
+        cost_map = get_costs(tree)
+        medoids, obj = find_n_medoids(tree, 1, distance_funcs, cost_map)
+        self.assertAlmostEqual(obj, 11.5, 10)
+        self.assertEqual(medoids[0], 'c')
+
 
 if __name__ == '__main__':
     unittest.main()

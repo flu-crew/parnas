@@ -19,7 +19,10 @@ representation definition with a user-defined coverage radius.
 Alternative methods currently exist to select taxa on phylogenetic trees (ADCL), or to reduce the number of taxa in a phylogeny (Treemer).
 PARNAS is faster and more versatile than [ADCL](https://matsen.github.io/pplacer/generated_rst/rppr_min_adcl_tree.html#rppr-min-adcl-tree) by Matsen et al. (Systematic Biology 2013). 
 Similarly, PARNAS is faster than [Treemmer](https://github.com/fmenardo/Treemmer) (Menardo et al., BMC Bioinformatics 2018), 
-and the objective allows for reproducible and interpretable selections that are optimally representative.
+and our objective allows for reproducible and interpretable selections that are optimally representative.
+
+**If you use PARNAS, please cite it as**</br>
+*Markin, A., Wagle, S., Grover, S., Baker, A.L.V., Eulenstein, O. and Anderson, T.K., 2022. PARNAS: Objectively Selecting the Most Representative Taxa on a Phylogeny. bioRxiv.*
 
 ### Installation ###
 PARNAS is available in PyPi and can be installed as

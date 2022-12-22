@@ -67,6 +67,8 @@ def find_closest_centers(tree: Tree, centers: List[str]) -> Dict[Node, Tuple[str
 
 class DistFunction(object):
     def __init__(self, is_zero, min_dst=None, max_dist=None, weight=None, is_binary=False):
+        if weight is not None and weight < 1e-8:
+            is_zero = True
         self.is_zero = is_zero
         self.is_binary = is_binary
         if not is_zero:

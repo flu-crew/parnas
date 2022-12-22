@@ -332,7 +332,7 @@ class PMedianDP:
                 return weight
             # mapped_dist = dist if (dist <= max_dist) else max_dist  # This is an older interpretation -- obsolete.
             mapped_dist = min(dist, max_dist) - min_dist
-            mapped_dist *= weight
+            mapped_dist = mapped_dist * weight
             return mapped_dist
 
     def _get_DP_by_id(self, node_id, q, radius_id, in_G):

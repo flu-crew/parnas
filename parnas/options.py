@@ -33,7 +33,8 @@ parser.add_argument('--prior', type=str, action='store', dest='prior_regex',
 parser.add_argument('--weights', type=str, action='store', dest='weights_csv',
                     help='A CSV file specifying a weight for some or all taxa. '
                          'The column names must be "taxon" and "weight".\n'
-                         'If a taxon is not listed in the file, its weight is assumed to be 1.')
+                         'If a taxon is not listed in the file, its weight is assumed to be 1. '
+                         'Maximum allowed weight is 1000 and weights below 1e-8 are considered 0.')
 parser.add_argument('--radius', type=float, action='store', dest='radius',
                     help='Each representative will "cover" all leaves within the specified radius on the tree. '
                          'PARNAS will then choose representatives so that the amount of uncovered diversity is minimized.',
@@ -162,7 +163,11 @@ def validate_weights(path: str):
                 if not l:
                     break
                 taxon, weight_str = [value.strip() for value in l.split(',')]
-                taxa_weights[taxon] = float(weight_str)
+                weight = float(weight_str)
+                if weight < 0 or weight > 1000:
+                    parser.error('Invalid weight %.8f for taxon %s. All weights must be non-negative and not exceed 1000.'
+                                 % (weight, taxon))
+                taxa_weights[taxon] = weight
     except Exception:
         parser.error('Cannot open/read the specified weights file "%s".' % path)
     return taxa_weights
