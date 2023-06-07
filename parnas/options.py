@@ -197,12 +197,14 @@ def parse_and_validate():
     tree = None
     try:
         tree = Tree.get(path=args.tree, schema='newick', preserve_underscores=True)
-    except Exception:
+    except Exception as newick_exception:
         try:
             tree = Tree.get(path=args.tree, schema='nexus', preserve_underscores=True)
-        except Exception:
+        except Exception as nexus_exception:
             parser.error('Cannot read the specified tree file "%s". ' % args.tree +
-                         'Make sure the tree is in the newick or nexus format.')
+                         'Make sure the tree is in the newick or nexus format.\n'
+                         f'Nexus error: {nexus_exception}\n'
+                         f'Newick error: {newick_exception}')
 
     # Validate n.
     n = -1
