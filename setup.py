@@ -7,8 +7,8 @@ with open("README.md", "r") as fh:
 
 setup(
     install_requires=[
-        'numpy<1.23,>=1.17',
-        'numba==0.55.2',
+        'numpy<=1.24,>=1.17',
+        'numba>=0.57.0',
         'biopython>=1.67',
         'dendropy>=4.5.0',
         'phylo-treetime>=0.9.4'
@@ -29,6 +29,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
