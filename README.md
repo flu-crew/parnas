@@ -1,4 +1,7 @@
 ## PARNAS ##
+**If you use PARNAS, please cite it as**</br>
+*Markin, A., Wagle, S., Grover, S., Baker, A.L.V., Eulenstein, O. and Anderson, T.K., 2022. PARNAS: Objectively Selecting the Most Representative Taxa on a Phylogeny. Systematic Biology, 2023; syad028 [doi: 10.1093/sysbio/syad028](https://doi.org/10.1093/sysbio/syad028).*
+
 PARNAS identifies taxa that best represent diversity on a phylogenetic tree
 and can be used to
 - Select most representative taxa
@@ -6,7 +9,7 @@ and can be used to
 - Reduce redundancy among genetic/genomic sequences
 - Identify key diversity groups on a phylogeny
 
-PARNAS solves urgent needs in virology/microbiology, such as
+PARNAS solves needs in virology/microbiology, such as
 - Objectively finding representative strains for in-depth analyses (phenotypic characterization, Bayesian inference, etc.)
 - Objective and flexible vaccine strain selection
 
@@ -21,8 +24,7 @@ PARNAS is faster and more versatile than [ADCL](https://matsen.github.io/pplacer
 Similarly, PARNAS is faster than [Treemmer](https://github.com/fmenardo/Treemmer) (Menardo et al., BMC Bioinformatics 2018), 
 and our objective allows for reproducible and interpretable selections that are optimally representative.
 
-**If you use PARNAS, please cite it as**</br>
-*Markin, A., Wagle, S., Grover, S., Baker, A.L.V., Eulenstein, O. and Anderson, T.K., 2022. PARNAS: Objectively Selecting the Most Representative Taxa on a Phylogeny. Systematic Biology, 2023; syad028 [doi: 10.1093/sysbio/syad028](https://doi.org/10.1093/sysbio/syad028).*
+
 
 ### Installation ###
 PARNAS is available in PyPi and can be installed as
