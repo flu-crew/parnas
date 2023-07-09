@@ -55,7 +55,12 @@ This results in a tree with only 443 taxa! Note that 0.005 distance on a maximum
 The initial 12,000 taxa tree (`genbank_H1N1pdm_USA.rooted.tre`) can be found in the tutorial [folder](tutorial/H1N1pdm_2020.zip).
 
 <center>
-<img src="tutorial/figures/H1N1pdm-downsampling.png">
+<!-- <img src="tutorial/figures/H1N1pdm-downsampling.png"> -->
+<object data="tutorial/figures/H1N1pdm-downsampling.pdf" type="application/pdf">
+    <embed src="tutorial/figures/H1N1pdm-downsampling.pdf">
+        <p>This browser does not support PDFs. You can view the trees <a href="tutorial/figures/H1N1pdm-downsampling.pdf">here</a>.</p>
+    </embed>
+</object>
 </center>
 
 Below we discuss how PARNAS can help select most representative taxa.
