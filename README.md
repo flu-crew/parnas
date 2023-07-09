@@ -42,7 +42,7 @@ PARNAS has the following two main use-cases.
 ### Optimal downsampling of large trees ###
 PARNAS lets you downsample a large phylogeny, while preserving all the diversity up to a user-specified threshold.
 
-In particular, if you have a threshold parameter (e.g., 1% sequence divergence on a tree) PARNAS lets use choose **the smallest** subset of taxa so that all other taxa are within that threshold distance to a representative.
+In particular, if you have a threshold parameter (e.g., 1% sequence divergence on a tree) PARNAS selects **the smallest** subset of taxa so that all other taxa are within that threshold distance to a representative.
 
 
 The typical application of this feature is downscaling large densely-sampled trees.
@@ -63,7 +63,7 @@ The initial 12,000 taxa tree (`genbank_H1N1pdm_USA.rooted.tre`) can be found in 
 </object> -->
 </center>
 
-Below we discuss how PARNAS can help select most representative taxa.
+Below we discuss how PARNAS selects most representative taxa.
 
 ### Selecting best representatives ###
 We use a human H1N1pdm dataset with HA sequences collected in 2020, downloaded from [IRD](fludb.org), for this tutorial.
