@@ -12,13 +12,13 @@ PARNAS solves urgent needs in virology/microbiology, such as
 
 PARNAS can take into account previously used representatives and a wide range of user's constraints.
 Additionally, PARNAS is flexible in allowing
-arbitrary weighing of taxa, e.g., based on predicted fitness/antigenic drift. Finally, PARNAS allows you to fine-tune 
+arbitrary weighing of taxa, e.g., based on predicted fitness/antigenic drift. Finally, PARNAS allows you to fine-tune
 representation definition with a user-defined coverage radius.
 
 
 Alternative methods currently exist to select taxa on phylogenetic trees (ADCL), or to reduce the number of taxa in a phylogeny (Treemer).
-PARNAS is faster and more versatile than [ADCL](https://matsen.github.io/pplacer/generated_rst/rppr_min_adcl_tree.html#rppr-min-adcl-tree) by Matsen et al. (Systematic Biology 2013). 
-Similarly, PARNAS is faster than [Treemmer](https://github.com/fmenardo/Treemmer) (Menardo et al., BMC Bioinformatics 2018), 
+PARNAS is faster and more versatile than [ADCL](https://matsen.github.io/pplacer/generated_rst/rppr_min_adcl_tree.html#rppr-min-adcl-tree) by Matsen et al. (Systematic Biology 2013).
+Similarly, PARNAS is faster than [Treemmer](https://github.com/fmenardo/Treemmer) (Menardo et al., BMC Bioinformatics 2018),
 and our objective allows for reproducible and interpretable selections that are optimally representative.
 
 **If you use PARNAS, please cite it as**</br>
@@ -35,7 +35,33 @@ Alternatively, to install PARNAS, clone or download this project and run
 `python setup.py install`.
 ## Tutorial ##
 
-We use a human H1N1 (pdm09) dataset with HA sequences collected in 2020, downloaded from [IRD](fludb.org), for this tutorial.
+PARNAS has the following two main use-cases.
+1. [Optimal downsampling](#optimal-downsampling-of-large-trees)
+2. [Selecting best representatives](#selecting-best-representatives)
+
+### Optimal downsampling of large trees ###
+PARNAS lets you downsample a large phylogeny, while preserving all the diversity up to a user-specified threshold.
+
+In particular, if you have a threshold parameter (e.g., 1% sequence divergence on a tree) PARNAS lets use choose **the smallest** subset of taxa so that all other taxa are within that threshold distance to a representative.
+
+
+The typical application of this feature is downscaling large densely-sampled trees.
+In this example we will use a (human) H1N1pdm influenza A dataset with 12,000 taxa.
+We optimally downsample it while preserving all diversity up to 99.5% sequence similarity, as follows:
+
+`parnas -t genbank_H1N1pdm_USA.rooted.tre --cover --radius 0.005 --subtree H1N1pdm.r005.tre`
+
+This results in a tree with only 443 taxa! Note that 0.005 distance on a maximum likelihood phylogeny serves here as a proxy for the 0.5% sequence divergence. A downsampled tree will be saved to a new `H1N1pdm.r005.tre` file.
+The initial 12,000 taxa tree (`genbank_H1N1pdm_USA.rooted.tre`) can be found in the tutorial [folder](tutorial/H1N1pdm_2020.zip).
+
+<center>
+<img src="tutorial/figures/H1N1pdm-downsampling.png">
+</center>
+
+Below we discuss how PARNAS can help select most representative taxa.
+
+### Selecting best representatives ###
+We use a human H1N1pdm dataset with HA sequences collected in 2020, downloaded from [IRD](fludb.org), for this tutorial.
 The alignment and an inferred rooted tree can be found in the tutorial [folder](tutorial/H1N1pdm_2020.zip).
 
 The basic usage of PARNAS is to find a fixed number of representative taxa, as follows:<br>
