@@ -22,7 +22,7 @@ Similarly, PARNAS is faster than [Treemmer](https://github.com/fmenardo/Treemmer
 and our objective allows for reproducible and interpretable selections that are optimally representative.
 
 **If you use PARNAS, please cite it as**</br>
-*Markin, A., Wagle, S., Grover, S., Baker, A.L.V., Eulenstein, O. and Anderson, T.K., 2022. PARNAS: Objectively Selecting the Most Representative Taxa on a Phylogeny. bioRxiv.*
+*Markin, A., Wagle, S., Grover, S., Baker, A.L.V., Eulenstein, O. and Anderson, T.K., 2023. PARNAS: Objectively Selecting the Most Representative Taxa on a Phylogeny. Systematic Biology, https://doi.org/10.1093/sysbio/syad028.*
 
 ### Installation ###
 PARNAS is available in PyPi and can be installed as
