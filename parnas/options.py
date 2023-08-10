@@ -59,6 +59,10 @@ output_options.add_argument('--diversity', type=str, action='store', dest='csv_p
                          'Can be used to choose the right number of representatives for a dataset.')
 output_options.add_argument('--subtree', type=str, action='store', dest='sample_tree_path',
                     help='Prune the tree to the sampled taxa and save to the specified file in NEXUS format.')
+output_options.add_argument('--clusters', type=str, action='store', dest='clusters_path',
+                            help='PARNAS will save how it partitioned the tree based on the representatives '
+                                 'to the specified file.\n'
+                                 'Output is a tab-delimited file with lines as <taxon name><tab><partition number>.')
 
 taxa_handler = parser.add_argument_group('Excluding taxa')
 taxa_handler.add_argument('--exclude-rep', type=str, action='store', dest='exclude_regex',

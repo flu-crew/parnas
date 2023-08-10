@@ -76,6 +76,30 @@ def color_by_clusters(tree: Tree, centers: List[str], prior_centers=None, fully_
             taxon.annotations.add_new('!color', prior_color)
 
 
+def save_clusters(clusters_path: str, tree: Tree, centers: List[str], prior_centers=None, fully_excluded=None,
+                  radius=None, annotated=False):
+    if not annotated:
+        annotate_with_closest_centers(tree, centers, prior_centers=prior_centers, radius=radius)
+
+    clusters = {}
+    for leaf in tree.leaf_nodes():  # Go through the annotations and collect clusters together.
+        if fully_excluded and leaf.taxon.label in fully_excluded:
+            continue
+        if leaf.annotations.get_value('center') is not None and leaf.annotations.get_value('center') >= 0:
+            center: int = leaf.annotations.get_value('center')
+            if center in clusters.keys():
+                cluster: List[str] = clusters.get(center)
+                cluster.append(leaf.taxon.label)
+            else:
+                clusters[center] = [leaf.taxon.label]
+
+    with open(clusters_path, 'w') as clusters_file:  # Save clusters (partition) to a user-specified path.
+        for center in sorted(clusters.keys()):
+            for taxon in clusters[center]:
+                clusters_file.write(f'{taxon}\t{center}\n')  # <taxon-name><tab><partition-number>
+    parnas_logger.info(f'Saved clusters to {clusters_path}')
+
+
 # def assess_clade_similarity(annotated_tree: Tree, centers: List[str], records: List[SeqRecord.SeqRecord],
 #                             sim_matrix: SequenceSimilarityMatrix):
 #     for i, center in enumerate(centers):
@@ -146,15 +170,21 @@ def run_parnas_cli():
         parnas_logger.info('Chosen representatives cover %.2f%% of ' % diversity_scores[-1] +
                            f'{"(new) " if prior_centers else "overall "}diversity.')
 
+    annotated = False
     if args.out_path:
         color_by_clusters(query_tree, representatives, prior_centers=prior_centers, fully_excluded=fully_excluded,
                           radius=radius)
+        annotated = True
         parnas_logger.debug(f'Finished coloring {datetime.now().strftime("%H:%M:%S")}')
         try:
             query_tree.write(path=args.out_path, schema='nexus')
             parnas_logger.info('Colored tree was saved to "%s".' % args.out_path)
         except Exception:
             parser.error('Cant write to the specified path "%s".' % args.out_path)
+
+    if args.clusters_path:
+        save_clusters(args.clusters_path, query_tree, representatives, prior_centers=prior_centers,
+                      fully_excluded=fully_excluded, radius=radius, annotated=annotated)
 
     if args.csv_path:
         if args.cover:
