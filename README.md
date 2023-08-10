@@ -40,6 +40,7 @@ Alternatively, to install PARNAS, clone or download this project and run
 PARNAS has the following two main use-cases.
 1. [Optimal downsampling](#optimal-downsampling-of-large-trees)
 2. [Selecting best representatives](#selecting-best-representatives)
+3. [Clustering/partitioning the taxa](#clusteringtree-partitioning-using-parnas)
 
 ### Optimal downsampling of large trees ###
 PARNAS lets you downsample a large phylogeny, while preserving all the diversity up to a user-specified threshold.
@@ -123,6 +124,17 @@ Opening `parnas_97coverage_vaccines.tre` in FigTree will show us that there are 
 #### Other functionality ####
 - Specify weights for taxa, so that taxa/strains with larger weights are better represented.
 - Flexibly exclude taxa to either fully ignore them or to not consider them as potential representatives.
+
+### Clustering/tree partitioning using PARNAS ###
+All the above examples result not only in a subset of representative taxa, but also in a tree partitioned into meaningful clusters.
+The taxa in each of those clusters are exactly what one of the selected representatives represents/covers.
+As sometimes the clustering may be a goal on its own, we provide an option to output the clusters in a convenient format.
+
+For example, the 99.5% partitioning of a 12,000 H1N1pdm tree from above can be saved using the *--clusters* option as follows:
+```
+parnas -t genbank_H1N1pdm_USA.rooted.tre --cover --radius 0.005 --subtree H1N1pdm.r005.tre --clusters r005.clusters.tab
+```
+This results in a tab-delimited file `r005.clusters.tab`, where taxa beloning to the same cluster are labeled by the same cluster index.
 
 ## PARNAS usage ##
 
