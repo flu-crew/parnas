@@ -37,7 +37,7 @@ Alternatively, to install PARNAS, clone or download this project and run
 `python setup.py install`.
 ## Tutorial ##
 
-PARNAS has the following two main use-cases.
+PARNAS has the following three main use-cases.
 1. [Optimal downsampling](#optimal-downsampling-of-large-trees)
 2. [Selecting best representatives](#selecting-best-representatives)
 3. [Clustering/partitioning the taxa](#clusteringtree-partitioning-using-parnas)
