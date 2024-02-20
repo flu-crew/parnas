@@ -161,7 +161,7 @@ def validate_weights(path: str):
         with open(path, 'r') as weights_csv:
             headers = [header.strip() for header in weights_csv.readline().split(',')]
             if len(headers) != 2 or headers[0] != 'taxon' or headers[1] != 'weight':
-                parser.error('Invalid weights file: the first line of the scv file must be "taxon, weight".')
+                parser.error('Invalid weights file: the first line of the csv file must be "taxon, weight".')
             while True:
                 l = weights_csv.readline().strip()
                 if not l:

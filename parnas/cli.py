@@ -167,7 +167,7 @@ def run_parnas_cli():
         for rep in representatives:
             print('%s' % rep)
     if not args.cover and len(representatives) > 1 and diversity_scores:
-        parnas_logger.info('Chosen representatives cover %.2f%% of ' % diversity_scores[-1] +
+        parnas_logger.info('Chosen representatives account for %.2f%% of ' % diversity_scores[-1] +
                            f'{"(new) " if prior_centers else "overall "}diversity.')
 
     annotated = False
