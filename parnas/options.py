@@ -63,6 +63,10 @@ output_options.add_argument('--clusters', type=str, action='store', dest='cluste
                             help='PARNAS will save how it partitioned the tree based on the representatives '
                                  'to the specified file.\n'
                                  'Output is a tab-delimited file with lines as <taxon name><tab><partition number>.')
+output_options.add_argument('--evaluate', action='store_true',
+                    help='Instead of finding new representatives, evaluate how good are the prior representatives '
+                         'specified with "--prior". This option will ignore any other output options and the "--cover" flag.',
+                    required=False)
 
 taxa_handler = parser.add_argument_group('Excluding taxa')
 taxa_handler.add_argument('--exclude-rep', type=str, action='store', dest='exclude_regex',
@@ -212,7 +216,7 @@ def parse_and_validate():
 
     # Validate n.
     n = -1
-    if not args.samples and not args.cover:
+    if not args.samples and not args.cover and not args.evaluate:
         parser.error('Please either specify the number of representatives with "-n" or use the --cover option.')
     if args.samples:
         n = args.samples
@@ -224,6 +228,11 @@ def parse_and_validate():
     if args.prior_regex:
         prior_centers = find_matching_taxa(tree, args.prior_regex, 'Prior centers that match the regex:',
                                            'No taxa matched PRIOR_REGEX', True)
+
+    # Validate --evaluate.
+    if args.evaluate:
+        if not prior_centers:
+            parser.error('No prior representatives specified for the evaluation (see --prior).')
 
     # Validate exclusions.
     excluded_taxa = []

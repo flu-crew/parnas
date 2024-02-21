@@ -4,16 +4,19 @@ import colorsys
 from datetime import datetime
 from typing import List
 import sys
+import random as rnd
 # import math
 
 # from Bio import SeqRecord
 from dendropy import Tree
+from scipy.stats import percentileofscore
 
 from parnas import parnas_logger
 from parnas.options import parser, parse_and_validate
 # from parnas.sequences import SequenceSimilarityMatrix
 from parnas.medoids import find_n_medoids, annotate_with_closest_centers, build_distance_functions, binarize_tree,\
     get_costs, find_n_medoids_with_diversity, find_coverage
+from parnas.medoids.medoid_utils import get_centers_score
 
 
 # os.environ["NUMBA_DUMP_ANNOTATION"] = "1"
@@ -129,89 +132,123 @@ def run_parnas_cli():
     # Binarize the query tree:
     binarize_tree(query_tree, edge_length=0)
 
-    dist_functions = build_distance_functions(query_tree, prior_centers=prior_centers, is_binary=is_binary,
-                                              fully_excluded=fully_excluded + obj_excluded, radius=radius,
-                                              taxa_weights=taxa_weights)
     cost_map = get_costs(query_tree, excluded_taxa, fully_excluded)
-    parnas_logger.info("Inferring best representatives...")
-    if not args.cover:
-        representatives, value, diversity_scores = find_n_medoids_with_diversity(query_tree, n, dist_functions, cost_map,
-                                                                                 max_dist=radius)
-    else:
-        # coverage = None
-        coverage = find_coverage(query_tree, radius, cost_map, prior_centers, fully_excluded, obj_excluded)
-        if coverage is None:
-            parnas_logger.warning("The tree cannot be fully covered given the exclusion constraints.")
-            parnas_logger.warning("Falling back onto a slower method that would cover the tree as much as possible.")
-            opt_n = -1
-            prev_value = -1
-            for n in range(1, len(query_tree.leaf_nodes()) + 1):
-                representatives, value = find_n_medoids(query_tree, n, dist_functions, cost_map, max_dist=radius)
-                if value == prev_value:
-                    # The best possible value was achieved on the previous n (full coverage is impossible).
-                    opt_n = n - 1
-                    break
-                elif value == 0:
-                    # Achieved full coverage.
-                    opt_n = n
-                    break
-                prev_value = value
+    if not args.evaluate:
+        # The main procedure for finding best representatives.
+        dist_functions = build_distance_functions(query_tree, prior_centers=prior_centers, is_binary=is_binary,
+                                                  fully_excluded=fully_excluded + obj_excluded, radius=radius,
+                                                  taxa_weights=taxa_weights)
+        parnas_logger.info("Inferring best representatives...")
+        if not args.cover:
+            representatives, value, diversity_scores = find_n_medoids_with_diversity(query_tree, n, dist_functions, cost_map,
+                                                                                     max_dist=radius)
         else:
-            representatives = coverage
+            # coverage = None
+            coverage = find_coverage(query_tree, radius, cost_map, prior_centers, fully_excluded, obj_excluded)
+            if coverage is None:
+                parnas_logger.warning("The tree cannot be fully covered given the exclusion constraints.")
+                parnas_logger.warning("Falling back onto a slower method that would cover the tree as much as possible.")
+                opt_n = -1
+                prev_value = -1
+                for n in range(1, len(query_tree.leaf_nodes()) + 1):
+                    representatives, value = find_n_medoids(query_tree, n, dist_functions, cost_map, max_dist=radius)
+                    if value == prev_value:
+                        # The best possible value was achieved on the previous n (full coverage is impossible).
+                        opt_n = n - 1
+                        break
+                    elif value == 0:
+                        # Achieved full coverage.
+                        opt_n = n
+                        break
+                    prev_value = value
+            else:
+                representatives = coverage
 
-    if len(representatives) == 0:
-        parnas_logger.info('The diversity on the tree is already fully covered by the prior centers - no new '
-                           'representatives needed.')
-    else:
-        parnas_logger.info('Chosen representatives:')
-        for rep in representatives:
-            print('%s' % rep)
-    if not args.cover and len(representatives) > 1 and diversity_scores:
-        parnas_logger.info('Chosen representatives account for %.2f%% of ' % diversity_scores[-1] +
-                           f'{"(new) " if prior_centers else "overall "}diversity.')
+        if len(representatives) == 0:
+            parnas_logger.info('The diversity on the tree is already fully covered by the prior centers - no new '
+                               'representatives needed.')
+        else:
+            parnas_logger.info('Chosen representatives:')
+            for rep in representatives:
+                print('%s' % rep)
+        if not args.cover and len(representatives) > 1 and diversity_scores:
+            parnas_logger.info('Chosen representatives account for %.2f%% of ' % diversity_scores[-1] +
+                               f'{"(new) " if prior_centers else "overall "}diversity.')
 
-    annotated = False
-    if args.out_path:
-        color_by_clusters(query_tree, representatives, prior_centers=prior_centers, fully_excluded=fully_excluded,
-                          radius=radius)
-        annotated = True
-        parnas_logger.debug(f'Finished coloring {datetime.now().strftime("%H:%M:%S")}')
-        try:
-            query_tree.write(path=args.out_path, schema='nexus')
-            parnas_logger.info('Colored tree was saved to "%s".' % args.out_path)
-        except Exception:
-            parser.error('Cant write to the specified path "%s".' % args.out_path)
-
-    if args.clusters_path:
-        save_clusters(args.clusters_path, query_tree, representatives, prior_centers=prior_centers,
-                      fully_excluded=fully_excluded, radius=radius, annotated=annotated)
-
-    if args.csv_path:
-        if args.cover:
-            parnas_logger.warning('"--diversity" cannot be used in combination with "--cover".')
-        elif n <= 1:
-            parnas_logger.warning('No diversity scores to report as n < 2.')
-        elif diversity_scores:
+        annotated = False
+        if args.out_path:
+            color_by_clusters(query_tree, representatives, prior_centers=prior_centers, fully_excluded=fully_excluded,
+                              radius=radius)
+            annotated = True
+            parnas_logger.debug(f'Finished coloring {datetime.now().strftime("%H:%M:%S")}')
             try:
-                with open(args.csv_path, 'w') as diversity_log:
-                    diversity_log.write('Representatives, Diversity_covered\n')
-                    for i, score in enumerate(diversity_scores):
-                        diversity_log.write('%d, %.2f\n' % (i + 2, score))
-                parnas_logger.info('Diversity scores were saved to "%s".' % args.csv_path)
-            except IOError:
-                parser.error('Cant write to the specified path "%s".' % args.csv_path)
+                query_tree.write(path=args.out_path, schema='nexus')
+                parnas_logger.info('Colored tree was saved to "%s".' % args.out_path)
+            except Exception:
+                parser.error('Cant write to the specified path "%s".' % args.out_path)
 
-    if args.sample_tree_path:
-        sample_tree = query_tree.extract_tree_with_taxa_labels(representatives)
-        assert isinstance(sample_tree, Tree)
-        sample_tree.purge_taxon_namespace()
-        for taxon in sample_tree.taxon_namespace:
-            taxon.annotations.drop(name='!color')
-        sample_tree.write(path=args.sample_tree_path, schema='nexus')
+        if args.clusters_path:
+            save_clusters(args.clusters_path, query_tree, representatives, prior_centers=prior_centers,
+                          fully_excluded=fully_excluded, radius=radius, annotated=annotated)
 
-        # if args.nt_alignment:
-        #     # Parsing assuming its swIAV HA sequences.
-        #     alignment_path = args.nt_alignment
-        #     records = list(SeqIO.parse(alignment_path, 'fasta'))
-        #     sim_matrix = SequenceSimilarityMatrix(None, None, records, records, aligned=True, ignore_tails=True, nt_alphabet=True)
-        #     assess_clade_similarity(query_tree, representatives, records, sim_matrix)
+        if args.csv_path:
+            if args.cover:
+                parnas_logger.warning('"--diversity" cannot be used in combination with "--cover".')
+            elif n <= 1:
+                parnas_logger.warning('No diversity scores to report as n < 2.')
+            elif diversity_scores:
+                try:
+                    with open(args.csv_path, 'w') as diversity_log:
+                        diversity_log.write('Representatives, Diversity_covered\n')
+                        for i, score in enumerate(diversity_scores):
+                            diversity_log.write('%d, %.2f\n' % (i + 2, score))
+                    parnas_logger.info('Diversity scores were saved to "%s".' % args.csv_path)
+                except IOError:
+                    parser.error('Cant write to the specified path "%s".' % args.csv_path)
+
+        if args.sample_tree_path:
+            sample_tree = query_tree.extract_tree_with_taxa_labels(representatives)
+            assert isinstance(sample_tree, Tree)
+            sample_tree.purge_taxon_namespace()
+            for taxon in sample_tree.taxon_namespace:
+                taxon.annotations.drop(name='!color')
+            sample_tree.write(path=args.sample_tree_path, schema='nexus')
+
+            # if args.nt_alignment:
+            #     # Parsing assuming its swIAV HA sequences.
+            #     alignment_path = args.nt_alignment
+            #     records = list(SeqIO.parse(alignment_path, 'fasta'))
+            #     sim_matrix = SequenceSimilarityMatrix(None, None, records, records, aligned=True, ignore_tails=True, nt_alphabet=True)
+            #     assess_clade_similarity(query_tree, representatives, records, sim_matrix)
+    else:
+        # The procedure for evaluating the prior centers.
+        dist_functions = build_distance_functions(query_tree, is_binary=is_binary,
+                                                  fully_excluded=fully_excluded + obj_excluded, radius=radius,
+                                                  taxa_weights=taxa_weights)
+        prior_score = get_centers_score(query_tree, prior_centers, dist_functions)
+
+        # Find the best n representatives
+        n = len(prior_centers)
+        parnas_logger.info(f'Finding best {n} representatives to compare with prior...')
+        representatives, value, diversity_scores = find_n_medoids_with_diversity(query_tree, n, dist_functions,
+                                                                                 cost_map,
+                                                                                 max_dist=radius)
+
+        # Compare the prior reps with the best n reps.
+        decrease_from_optimal = (1 - value / prior_score) * 100
+        parnas_logger.info('Prior representatives are %.2f%% less representative than the optimal set.'
+                           % decrease_from_optimal)
+
+        # Compare prior to random sets.
+        replicates = 100
+        parnas_logger.info(f'Comparing the prior representatives with random reps ({replicates} replicates)...')
+        taxa_labels = [leaf.taxon.label for leaf in query_tree.leaf_nodes()]
+        rnd_scores = []
+        for i in range(replicates):
+            rnd.shuffle(taxa_labels)
+            rnd_reps = taxa_labels[:n]
+            rnd_score = get_centers_score(query_tree, rnd_reps, dist_functions)
+            rnd_scores.append(rnd_score)
+        rnd_scores = sorted(rnd_scores)
+        prior_percentile = percentileofscore(rnd_scores, prior_score, kind='rank')
+        parnas_logger.info(f'Prior strains are more representative than {prior_percentile}% of random sets.')

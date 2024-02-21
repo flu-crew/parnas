@@ -153,3 +153,18 @@ def binarize_tree(tree: Tree, edge_length=0):
                 interim_node.set_child_nodes([children[child_ind], new_node])
                 interim_node = new_node
             interim_node.set_child_nodes(children[num_children - 2:])
+
+
+def get_centers_score(tree: Tree, reps: List[str], dist_functions: Dict[Node, DistFunction]) -> float:
+    """
+    Return the score associated with the given reps.
+    """
+    closest_reps = find_closest_centers(tree, reps)
+    total_cost = 0
+    node: Node
+    for node in tree.postorder_node_iter():
+        if node.is_leaf():
+            dist_to_closest_rep = closest_reps[node][1]
+            node_contribution = dist_functions[node].get_dist(dist_to_closest_rep)
+            total_cost += node_contribution
+    return total_cost
