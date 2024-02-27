@@ -146,34 +146,37 @@ For a detailed reference on PARNAS options run `parnas -h` or see below.
 
 *General options*
 
-| Option | Description |
+| <div style="width:90px">Option</div> | Description |
 | --- | --- |
 |--radius | Specify a radius (distance on a tree) so that every representative covers all diversity within that radius. PARNAS will then choose representatives that optimally cover as much diversity as possible |
-| --prior | Specify prior representatives with a regex. PARNAS will then identify representatives of 'new' diversity |
-| --weights | Add a CSV file specifying weights for some or all taxa/strains |
-| --cover | Instead of specifying the number of representatives, specify the radius and PARNAS will find representative that cover all diversity on the tree |
+| --prior | Specify prior representatives with a regex. PARNAS will then identify representatives of the diversity not covered by the prior representatives |
+| --weights | Add a CSV file specifying weights for some or all taxa/strains. The column names must be "taxon" and "weight" and the weights should be between 0 and 1000. If a taxon is not listed in the file, its weight is assumed to be 1. Maximum allowed weight is 1000 and weights below 1e-8 are considered 0 |
+| --cover | Instead of specifying the number of representatives, specify the radius and PARNAS will find representatives that cover all diversity on the tree (each representative "covers" the taxa within the specified radius from it) |
+| --binary | To be used with --radius. Similarly to the --cover option, instead of covering as much diversity as possible, PARNAS will cover as many tips as possible within the radius. Each leaf will have a binary contribution to the objective: 0 if covered, else its weight |
 
 *Output options (combining output options is allowed)*
 
-| Option | Description |
+| <div style="width:90px">Option</div> | Description |
 | --- | --- |
 | --color | Specify an output path, where a colored tree will be saved. PARNAS will highlight the chosen representatives and color-partition the tree respective to the representatives. If prior representatives are specified, they (and the subtrees they represent) will be colored red.|
 | --diversity | Specify an output path, where a CSV will be saved with diversity scores for all k (number of representatives) from 2 to n. Can be used to choose the right number of representatives for a dataset |
 | --subtree | Specify a path, where a subtree with the sampled representatives will be saved (in NEXUS format) |
+| * NEW</br>--clusters | Specify a path and PARNAS will save how it partitioned the tree based on the chosen representatives to that file. Output is a tab-delimited file with lines as "taxon name [tab] partition number" |
+| * NEW</br>--evaluate | Instead of finding new representatives, evaluate how good are the prior representatives specified with the "--prior" option. This option will ignore any other output options and the "--cover" flag. |
 
 
 *Options to exclude/constrain taxa*
 
-| Option | Description |
+| <div style="width:120px">Option</div> | Description |
 | --- | --- |
 | --exclude-rep | REGEX. Matching taxa will not be chosen as representatives, but they will contribute to the objective function |
 | --exclude-obj | REGEX. Matching taxa can be selected, but will not contribute to the objective function (the opposite of --exclude-rep) |
 | --exclude-fully | REGEX. Matching taxa will be completely ignored by PARNAS |
 | --constrain-fully | REGEX. Opposite to '--exclude-fully', i.e., only the matching taxa will be considered by PARNAS |
 
-*Options to control sequence divergence*
+*Options to control sequence divergence (the tree's edges will be rescaled based on the inferred number of substitutions)*
 
-| Option | Description |
+| <div style="width:90px">Option</div>  | Description |
 | --- | --- |
 | --threshold | Number between 0 and 100. The sequence similarity threshold that works as --radius. For example, "95" will imply that each representative covers all leaves within 5% divergence on the tree. To account for sequence divergence, PARNAS will run TreeTime to infer ancestral substitutions along the tree edges and re-weigh the edges based on the number of substitutions on them. A sequence alignment (--nt or --aa) must be specified with this option |
 | --nt | Path to nucleotide sequence alignment associated with the tree tips |
