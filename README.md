@@ -8,21 +8,21 @@ and can be used to
 - Downsample a large phylogeny while optimally preserving the underlying diversity
 - Reduce redundancy among genetic/genomic sequences
 - Identify key diversity groups on a phylogeny
+- (*New) Evaluate how representative your set of taxa is.
 
-PARNAS solves needs in virology/microbiology, such as
+<!-- PARNAS solves needs in virology/microbiology, such as
 - Objectively finding representative strains for in-depth analyses (phenotypic characterization, Bayesian inference, etc.)
-- Objective and flexible vaccine strain selection
+- Objective and flexible vaccine strain selection -->
 
-PARNAS can take into account previously used representatives and a wide range of user's constraints.
-Additionally, PARNAS is flexible in allowing
-arbitrary weighing of taxa, e.g., based on predicted fitness/antigenic drift. Finally, PARNAS allows you to fine-tune
-representation definition with a user-defined coverage radius.
+PARNAS can take into account previously used representatives and a wide range of user's constraints. The tool is flexible in allowing
+arbitrary weighing of taxa, e.g., based on abundance data, sequence quality, or phenotypic preferences. Additionally, PARNAS allows you to fine-tune
+representation definition with a custom sequence divergence threshold (radius).
 
 
-Alternative methods currently exist to select taxa on phylogenetic trees (ADCL), or to reduce the number of taxa in a phylogeny (Treemer).
+<!-- Alternative methods currently exist to select taxa on phylogenetic trees (ADCL), or to reduce the number of taxa in a phylogeny (Treemer).
 PARNAS is faster and more versatile than [ADCL](https://matsen.github.io/pplacer/generated_rst/rppr_min_adcl_tree.html#rppr-min-adcl-tree) by Matsen et al. (Systematic Biology 2013).
 Similarly, PARNAS is faster than [Treemmer](https://github.com/fmenardo/Treemmer) (Menardo et al., BMC Bioinformatics 2018),
-and our objective allows for reproducible and interpretable selections that are optimally representative.
+and our objective allows for reproducible and interpretable selections that are optimally representative. -->
 
 
 
@@ -146,7 +146,7 @@ For a detailed reference on PARNAS options run `parnas -h` or see below.
 
 *General options*
 
-| <div style="width:120px">Option</div> | Description |
+| Option | Description |
 | --- | --- |
 |--radius | Specify a radius (distance on a tree) so that every representative covers all diversity within that radius. PARNAS will then choose representatives that optimally cover as much diversity as possible |
 | --prior | Specify prior representatives with a regex. PARNAS will then identify representatives of the diversity not covered by the prior representatives |
@@ -156,7 +156,7 @@ For a detailed reference on PARNAS options run `parnas -h` or see below.
 
 *Output options (combining output options is allowed)*
 
-| <div style="width:120px">Option</div> | Description |
+| Option | Description |
 | --- | --- |
 | --color | Specify an output path, where a colored tree will be saved. PARNAS will highlight the chosen representatives and color-partition the tree respective to the representatives. If prior representatives are specified, they (and the subtrees they represent) will be colored red.|
 | --diversity | Specify an output path, where a CSV will be saved with diversity scores for all k (number of representatives) from 2 to n. Can be used to choose the right number of representatives for a dataset |
@@ -167,7 +167,7 @@ For a detailed reference on PARNAS options run `parnas -h` or see below.
 
 *Options to exclude/constrain taxa*
 
-| <div style="width:140px">Option</div> | Description |
+| Option | Description |
 | --- | --- |
 | --exclude-rep | REGEX. Matching taxa will not be chosen as representatives, but they will contribute to the objective function |
 | --exclude-obj | REGEX. Matching taxa can be selected, but will not contribute to the objective function (the opposite of --exclude-rep) |
@@ -176,7 +176,7 @@ For a detailed reference on PARNAS options run `parnas -h` or see below.
 
 *Options to control sequence divergence (the tree's edges will be rescaled based on the inferred number of substitutions)*
 
-| <div style="width:120px">Option</div>  | Description |
+| Option | Description |
 | --- | --- |
 | --threshold | Number between 0 and 100. The sequence similarity threshold that works as --radius. For example, "95" will imply that each representative covers all leaves within 5% divergence on the tree. To account for sequence divergence, PARNAS will run TreeTime to infer ancestral substitutions along the tree edges and re-weigh the edges based on the number of substitutions on them. A sequence alignment (--nt or --aa) must be specified with this option |
 | --nt | Path to nucleotide sequence alignment associated with the tree tips |
