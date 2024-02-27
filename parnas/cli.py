@@ -140,8 +140,8 @@ def run_parnas_cli():
                                                   taxa_weights=taxa_weights)
         parnas_logger.info("Inferring best representatives...")
         if not args.cover:
-            representatives, value, diversity_scores = find_n_medoids_with_diversity(query_tree, n, dist_functions, cost_map,
-                                                                                     max_dist=radius)
+            representatives, value, diversity_scores, _ = find_n_medoids_with_diversity(query_tree, n, dist_functions,
+                                                                                        cost_map, max_dist=radius)
         else:
             # coverage = None
             coverage = find_coverage(query_tree, radius, cost_map, prior_centers, fully_excluded, obj_excluded)
@@ -230,25 +230,42 @@ def run_parnas_cli():
         # Find the best n representatives
         n = len(prior_centers)
         parnas_logger.info(f'Finding best {n} representatives to compare with prior...')
-        representatives, value, diversity_scores = find_n_medoids_with_diversity(query_tree, n, dist_functions,
-                                                                                 cost_map,
-                                                                                 max_dist=radius)
+        representatives, value, diversity_scores, obj1 = find_n_medoids_with_diversity(query_tree, n, dist_functions,
+                                                                                       cost_map, max_dist=radius)
+        best_diversity = diversity_scores[-1]
+        if obj1 > 0:
+            # Compare the prior reps with the best n reps.
+            prior_diversity = (obj1 - prior_score) / obj1 * 100
 
-        # Compare the prior reps with the best n reps.
-        decrease_from_optimal = (1 - value / prior_score) * 100
-        parnas_logger.info('Prior representatives are %.2f%% less representative than the optimal set.'
-                           % decrease_from_optimal)
+            # decrease_from_optimal = (1 - value / prior_score) * 100
+            # parnas_logger.info('Prior representatives are %.2f%% less representative than the optimal set.'
+            #                    % decrease_from_optimal)
 
-        # Compare prior to random sets.
-        replicates = 100
-        parnas_logger.info(f'Comparing the prior representatives with random reps ({replicates} replicates)...')
-        taxa_labels = [leaf.taxon.label for leaf in query_tree.leaf_nodes()]
-        rnd_scores = []
-        for i in range(replicates):
-            rnd.shuffle(taxa_labels)
-            rnd_reps = taxa_labels[:n]
-            rnd_score = get_centers_score(query_tree, rnd_reps, dist_functions)
-            rnd_scores.append(rnd_score)
-        rnd_scores = sorted(rnd_scores)
-        prior_percentile = percentileofscore(rnd_scores, prior_score, kind='rank')
-        parnas_logger.info(f'Prior strains are more representative than {prior_percentile}% of random sets.')
+            # Compare prior to random sets.
+            replicates = 100
+            parnas_logger.info(f'Comparing the prior representatives with random reps ({replicates} replicates)...')
+            taxa_labels = [leaf.taxon.label for leaf in query_tree.leaf_nodes() if
+                           leaf.taxon.label not in fully_excluded and leaf.taxon.label not in excluded_taxa]
+            rnd_scores = []
+            for i in range(replicates):
+                rnd.shuffle(taxa_labels)
+                rnd_reps = taxa_labels[:n]
+                rnd_score = get_centers_score(query_tree, rnd_reps, dist_functions)
+                rnd_scores.append(rnd_score)
+            rnd_scores = sorted(rnd_scores)
+            prior_percentile = percentileofscore(rnd_scores, prior_score, kind='strict')
+            rnd_diversity = [(obj1 - rnd_score) / obj1 * 100 for rnd_score in rnd_scores]
+
+            parnas_logger.plain('')
+            parnas_logger.info('The amount of diversity covered by the prior and best sets:')
+            if prior_diversity > 0:
+                parnas_logger.info('PRIOR:\t%.2f%%' % prior_diversity)
+            else:
+                parnas_logger.info('PRIOR:\t%.2f%%   (Note that this value is negative because the prior set is less representative than a single best taxon)' % prior_diversity)
+            parnas_logger.info('BEST:\t\t%.2f%%' % best_diversity)
+            # parnas_logger.info('RANDOM (mean):\t%.2f%%', sum(rnd_diversity) / len(rnd_diversity))
+            # parnas_logger.plain('')
+            parnas_logger.info(f'Prior strains are more representative than {100 - prior_percentile}% of random sets.')
+        else:
+            parnas_logger.info('It seems there is no diversity to be covered. '
+                               'Please check your tree and the --radius/--threshold setting (if any).')

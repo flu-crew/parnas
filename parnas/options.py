@@ -231,8 +231,8 @@ def parse_and_validate():
 
     # Validate --evaluate.
     if args.evaluate:
-        if not prior_centers:
-            parser.error('No prior representatives specified for the evaluation (see --prior).')
+        if not prior_centers or len(prior_centers) <= 1:
+            parser.error('At least two prior representatives need to be specified for the "--evaluate" option.')
 
     # Validate exclusions.
     excluded_taxa = []
