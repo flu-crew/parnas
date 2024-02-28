@@ -8,7 +8,7 @@ and can be used to
 - Downsample a large phylogeny while optimally preserving the underlying diversity
 - Reduce redundancy among genetic/genomic sequences
 - Identify key diversity groups on a phylogeny
-- (*New) Evaluate how representative your set of taxa is.
+- (*New) Evaluate how representative your set of taxa is
 
 <!-- PARNAS solves needs in virology/microbiology, such as
 - Objectively finding representative strains for in-depth analyses (phenotypic characterization, Bayesian inference, etc.)
