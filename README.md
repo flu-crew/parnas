@@ -2,7 +2,7 @@
 **If you use PARNAS, please cite it as**</br>
 *Markin, A., Wagle, S., Grover, S., Baker, A.L.V., Eulenstein, O. and Anderson, T.K. PARNAS: Objectively Selecting the Most Representative Taxa on a Phylogeny. Systematic Biology, 2023; syad028 [doi: 10.1093/sysbio/syad028](https://doi.org/10.1093/sysbio/syad028).*
 
-N.B. If you are are rescaling your tree using TreeTime within a PARNAS analysis, please also cite TreeTime *Sagulenko et al.[doi: 10.1093/ve/vex042](https://doi.org/10.1093/ve/vex042).*
+N.B. If you are are rescaling your tree using TreeTime within a PARNAS analysis, please also cite *Sagulenko et al. 2018 [doi: 10.1093/ve/vex042](https://doi.org/10.1093/ve/vex042).*
 
 PARNAS identifies taxa that best represent diversity on a phylogenetic tree
 and can be used to
