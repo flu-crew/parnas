@@ -59,6 +59,8 @@ output_options.add_argument('--diversity', type=str, action='store', dest='csv_p
                          'Can be used to choose the right number of representatives for a dataset.')
 output_options.add_argument('--subtree', type=str, action='store', dest='sample_tree_path',
                     help='Prune the tree to the sampled taxa and save to the specified file in NEXUS format.')
+output_options.add_argument('--include-prior', action='store_true', dest='include_prior',
+                    help='To be used in conjuction with --subtree and --prior to include the prior reps into the output subtree.')
 output_options.add_argument('--clusters', type=str, action='store', dest='clusters_path',
                             help='PARNAS will save how it partitioned the tree based on the representatives '
                                  'to the specified file.\n'
@@ -231,8 +233,8 @@ def parse_and_validate():
 
     # Validate --evaluate.
     if args.evaluate:
-        if not prior_centers or len(prior_centers) <= 1:
-            parser.error('At least two prior representatives need to be specified for the "--evaluate" option.')
+        if not prior_centers or len(prior_centers) < 1:
+            parser.error('At least one prior representative needs to be specified for the "--evaluate" option.')
 
     # Validate exclusions.
     excluded_taxa = []

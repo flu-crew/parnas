@@ -207,12 +207,15 @@ def run_parnas_cli():
                     parser.error('Cant write to the specified path "%s".' % args.csv_path)
 
         if args.sample_tree_path:
-            sample_tree = query_tree.extract_tree_with_taxa_labels(representatives)
-            assert isinstance(sample_tree, Tree)
+            retain_taxa = representatives.copy()
+            if args.include_prior:
+                retain_taxa.extend(prior_centers)
+            sample_tree: Tree = query_tree.extract_tree_with_taxa_labels(retain_taxa)
             sample_tree.purge_taxon_namespace()
             for taxon in sample_tree.taxon_namespace:
                 taxon.annotations.drop(name='!color')
             sample_tree.write(path=args.sample_tree_path, schema='nexus')
+            parnas_logger.info('The subtree was saved to "%s".' % args.sample_tree_path)
 
             # if args.nt_alignment:
             #     # Parsing assuming its swIAV HA sequences.
@@ -229,11 +232,16 @@ def run_parnas_cli():
 
         # Find the best n representatives
         n = len(prior_centers)
-        parnas_logger.info(f'Finding best {n} representatives to compare with prior...')
+        parnas_logger.info(f'Finding best {n} representative(s) to compare with prior...')
         representatives, value, diversity_scores, obj1 = find_n_medoids_with_diversity(query_tree, n, dist_functions,
                                                                                        cost_map, max_dist=radius)
-        best_diversity = diversity_scores[-1]
-        if obj1 > 0:
+
+        if obj1 <= 0:
+            parser.error('It seems there is no diversity to be covered. '
+                         'Please check your tree and the --radius/--threshold setting (if any).')
+
+        if n > 1:
+            best_diversity = diversity_scores[-1]
             # Compare the prior reps with the best n reps.
             prior_diversity = (obj1 - prior_score) / obj1 * 100
 
@@ -241,20 +249,7 @@ def run_parnas_cli():
             # parnas_logger.info('Prior representatives are %.2f%% less representative than the optimal set.'
             #                    % decrease_from_optimal)
 
-            # Compare prior to random sets.
-            replicates = 100
-            parnas_logger.info(f'Comparing the prior representatives with random reps ({replicates} replicates)...')
-            taxa_labels = [leaf.taxon.label for leaf in query_tree.leaf_nodes() if
-                           leaf.taxon.label not in fully_excluded and leaf.taxon.label not in excluded_taxa]
-            rnd_scores = []
-            for i in range(replicates):
-                rnd.shuffle(taxa_labels)
-                rnd_reps = taxa_labels[:n]
-                rnd_score = get_centers_score(query_tree, rnd_reps, dist_functions)
-                rnd_scores.append(rnd_score)
-            rnd_scores = sorted(rnd_scores)
-            prior_percentile = percentileofscore(rnd_scores, prior_score, kind='strict')
-            rnd_diversity = [(obj1 - rnd_score) / obj1 * 100 for rnd_score in rnd_scores]
+            # rnd_diversity = [(obj1 - rnd_score) / obj1 * 100 for rnd_score in rnd_scores]
 
             parnas_logger.plain('')
             parnas_logger.info('The amount of diversity covered by the prior and best sets:')
@@ -265,7 +260,23 @@ def run_parnas_cli():
             parnas_logger.info('BEST:\t\t%.2f%%' % best_diversity)
             # parnas_logger.info('RANDOM (mean):\t%.2f%%', sum(rnd_diversity) / len(rnd_diversity))
             # parnas_logger.plain('')
-            parnas_logger.info(f'Prior strains are more representative than {100 - prior_percentile}% of random sets.')
         else:
-            parnas_logger.info('It seems there is no diversity to be covered. '
-                               'Please check your tree and the --radius/--threshold setting (if any).')
+            # Evaluate the single representative.
+            print(f'Best score: {obj1}. Prior score: {prior_score}')
+            parnas_logger.info(f'The prior representative is {round(100 - (prior_score - obj1) / prior_score * 100, 3)}% '
+                               f'as representative as the best one.')
+
+        # Compare prior to random sets.
+        replicates = 1000
+        parnas_logger.info(f'Comparing the prior representatives with random reps ({replicates} replicates)...')
+        taxa_labels = [leaf.taxon.label for leaf in query_tree.leaf_nodes() if
+                       leaf.taxon.label not in fully_excluded and leaf.taxon.label not in excluded_taxa]
+        rnd_scores = []
+        for i in range(replicates):
+            rnd.shuffle(taxa_labels)
+            rnd_reps = taxa_labels[:n]
+            rnd_score = get_centers_score(query_tree, rnd_reps, dist_functions)
+            rnd_scores.append(rnd_score)
+        rnd_scores = sorted(rnd_scores)
+        prior_percentile = percentileofscore(rnd_scores, prior_score, kind='strict')
+        parnas_logger.info(f'Prior strains are more representative than {100 - prior_percentile}% of random sets.')
