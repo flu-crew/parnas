@@ -1,3 +1,6 @@
+### Version 0.1.6 (July 16, 2024) ###
+New option `--include-prior` to include prior representatives into the subtree output; added ability to evaluate a single prior representative.
+
 ### Version 0.1.5 (February 27, 2024) ###
 Added a new feature that evaluates how representative a set of taxa is! The representatives for evaluation need to be indicated with the `--prior` regex and they can be evaluated using the `--evaluate` output option.
 
