@@ -33,12 +33,12 @@ PARNAS depends on dendropy and Biopython for phylogenetic and MSA manipulations,
 
 PARNAS can be installed with PyPi, with conda, or manually.  
 
-### With PyPi : ### 
+### With PyPi ### 
 ```
 pip install parnas
 ```
 
-### With Conda : ### 
+### With Conda ### 
 If you haven't already, configure bioconda.
 ```
 conda config --add channels bioconda
@@ -49,6 +49,8 @@ Install PARNAS.
 ```
 conda create -n parnas_env parnas
 ```
+
+*We thank [@fdecarpentier](https://www.github.com/fdecarpentier) for adding parnas to bioconda.*
 
 ### Manually ###
 Clone or download this project and run
