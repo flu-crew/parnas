@@ -28,15 +28,32 @@ and our objective allows for reproducible and interpretable selections that are 
 
 
 
-### Installation ###
-PARNAS is available in PyPi and can be installed as
-`pip install parnas`. Note that PARNAS requires Python 3.7 or higher.
+## Installation ##
+PARNAS depends on dendropy and Biopython for phylogenetic and MSA manipulations, numpy and numba for just-in-time compilation of the critical algorithms into machine code, and (optionally) phylo-treetime to infer ancestral substitutions along tree edges. Note that PARNAS requires Python 3.7 or higher. These dependencies will be installed automatically. 
 
-PARNAS depends on dendropy and Biopython for phylogenetic and MSA manipulations, numpy and numba for just-in-time compilation of the critical algorithms into machine code, and (optionally) phylo-treetime to infer ancestral substitutions along tree edges. These dependencies will be installed automatically.
+PARNAS can be installed with PyPi, with conda, or manually.  
 
+### With PyPi : ### 
+```
+pip install parnas
+```
 
-Alternatively, to install PARNAS, clone or download this project and run
+### With Conda : ### 
+If you haven't already, configure bioconda.
+```
+conda config --add channels bioconda
+conda config --add channels conda-forge
+conda config --set channel_priority strict
+```
+Install PARNAS. 
+```
+conda create -n parnas_env parnas
+```
+
+### Manually ###
+Clone or download this project and run
 `python setup.py install`.
+
 ## Tutorial ##
 
 PARNAS has the following three main use-cases.
