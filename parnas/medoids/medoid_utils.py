@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Set
 from dendropy import Tree, Node, Taxon
 from Bio.Phylo import BaseTree
 import math
@@ -168,3 +168,16 @@ def get_centers_score(tree: Tree, reps: List[str], dist_functions: Dict[Node, Di
             node_contribution = dist_functions[node].get_dist(dist_to_closest_rep)
             total_cost += node_contribution
     return total_cost
+
+
+def compute_percent_coverage(tree: Tree, reps: List[str], radius: float, exclude_obj: Set[str]) -> float:
+    closest_reps = find_closest_centers(tree, reps)
+    total_leaves, total_covered = 0, 0
+    leaf: Node
+    for leaf in tree.leaf_node_iter():
+        if leaf.taxon.label not in exclude_obj:
+            total_leaves += 1
+            dist_to_closest_rep = closest_reps[leaf][1]
+            if dist_to_closest_rep <= radius:
+                total_covered += 1
+    return total_covered / total_leaves
