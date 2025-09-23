@@ -1,3 +1,6 @@
+### Version 0.1.7 (Sep 23, 2025) ###
+Expanded and improved ability to `--evaluate` prior representatives. By setting a radius and specifying `--cover` you can find what is the % of sequences covered by your representatives within your specified radius.
+
 ### Version 0.1.6 (July 16, 2024) ###
 New option `--include-prior` to include prior representatives into the subtree output; added ability to evaluate a single prior representative.
 
