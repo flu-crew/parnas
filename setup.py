@@ -11,7 +11,8 @@ setup(
         'numba>=0.57.0',
         'biopython>=1.67',
         'dendropy>=4.5.0',
-        'phylo-treetime>=0.9.4'
+        'phylo-treetime>=0.9.4',
+        'flask>=2.0',
     ],
     name="parnas",
     version=__version__,
@@ -23,6 +24,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/flu-crew/parnas",
     packages=["parnas", "parnas.medoids"],
+    package_data={"parnas": ["web/*.html"]},
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.7",
