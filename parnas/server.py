@@ -47,7 +47,8 @@ def _match_taxa(tree: Tree, regex: str):
     if not regex:
         return []
     try:
-        return [t.label for t in tree.taxon_namespace if re.match(regex, t.label)]
+        regex_compiled = re.compile(regex)
+        return [t.label for t in tree.taxon_namespace if regex_compiled.fullmatch(t.label)]
     except re.error as exc:
         raise ValueError(f"Invalid regex '{regex}': {exc}") from exc
 
@@ -71,7 +72,7 @@ def _parse_weights(path: str) -> dict:
                 w = float(weight_str)
             except ValueError:
                 raise ValueError(f"Non-numeric weight '{weight_str}' for taxon '{taxon}'")
-            if not (0 <= w <= 1000):
+            if w <= 0 or w >= 1000:
                 raise ValueError(f"Weight {w} for '{taxon}' out of range [0, 1000]")
             weights[taxon] = w
     return weights
@@ -140,7 +141,7 @@ def run_parnas():
     if threshold_str:
         try:
             threshold = float(threshold_str)
-            if not (0 < threshold < 100):
+            if threshold <= 0 or threshold >= 100:
                 return jsonify({"error": "Threshold must be between 0 and 100 (exclusive)"}), 400
         except ValueError:
             return jsonify({"error": "Threshold must be a valid number"}), 400
