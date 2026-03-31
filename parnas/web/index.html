@@ -298,6 +298,98 @@
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.25); border-radius: 10px; }
+
+    /* ── Param help links ─────────────────────────────────────── */
+    .param-help {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 13px; height: 13px; border-radius: 50%;
+      background: rgba(0,229,200,0.1); border: 1px solid rgba(0,229,200,0.28);
+      color: var(--accent); font-size: 0.55rem; font-weight: 700;
+      text-decoration: none; margin-left: 0.25em; vertical-align: middle;
+      line-height: 1; transition: background 0.15s;
+    }
+    .param-help:hover { background: rgba(0,229,200,0.25); }
+
+    /* ── Results panel (in viz-area) ─────────────────────────── */
+    #results-panel {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 0.65rem 1rem;
+      flex-shrink: 0; max-height: 190px; overflow-y: auto;
+    }
+    #results-panel .section-label { margin-top: 0.4rem; }
+    #results-panel .section-label:first-child { margin-top: 0; }
+    #results-panel .rep-list { display: flex; flex-wrap: wrap; gap: 0.1rem 1.2rem; }
+    #results-panel .rep-item { border-bottom: none; padding: 0.1rem 0; }
+    #results-panel .stat-grid {
+      flex-direction: row; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.3rem;
+    }
+    #results-panel .stat-item { flex: 1; min-width: 160px; }
+    #results-panel .diversity-pill { margin-bottom: 0.15rem; }
+
+    /* ── Export button ────────────────────────────────────────── */
+    .toolbar-btn {
+      display: flex; align-items: center; gap: 0.35rem;
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.2rem 0.65rem; font-size: 0.7rem; letter-spacing: 0.05em;
+      color: var(--text-muted); cursor: pointer; margin: 0; width: auto;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .toolbar-btn:hover {
+      border-color: var(--accent); color: var(--accent);
+      background: rgba(0,229,200,0.07);
+    }
+
+    /* ── Export dialog ────────────────────────────────────────── */
+    #export-dialog {
+      background: var(--bg-surface); color: inherit;
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 0; width: 500px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+    }
+    #export-dialog::backdrop {
+      background: rgba(0,0,0,0.55); backdrop-filter: blur(3px);
+    }
+    .exp-header {
+      padding: 1.1rem 1.5rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.13em; color: var(--text-muted);
+    }
+    .exp-body {
+      padding: 1.25rem 1.5rem;
+      display: flex; flex-direction: column; gap: 1.1rem;
+    }
+    .exp-footer {
+      padding: 0.9rem 1.5rem 1.1rem;
+      border-top: 1px solid var(--border);
+      display: flex; justify-content: flex-end; gap: 0.6rem;
+    }
+    .exp-footer button { margin: 0; width: auto; padding: 0.5rem 1.4rem; font-size: 0.85rem; }
+    .exp-label {
+      display: block; font-size: 0.7rem; font-weight: 500;
+      color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 0.4rem;
+    }
+    .exp-fmt-group {
+      display: flex; gap: 3px;
+      background: var(--bg-hover); border: 1px solid var(--border);
+      border-radius: 7px; padding: 3px;
+    }
+    .exp-fmt-btn {
+      background: none; border: none; border-radius: 5px; flex: 1;
+      padding: 0.38rem 0; font-size: 0.78rem; letter-spacing: 0.05em;
+      color: var(--text-muted); cursor: pointer; font-weight: 500;
+      transition: background 0.15s, color 0.15s; margin: 0; width: auto;
+    }
+    .exp-fmt-btn.active { background: rgba(0,229,200,0.15); color: var(--accent); }
+    .exp-fmt-btn:hover:not(.active) { background: var(--bg-hover); }
+    .exp-dims {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem;
+    }
+    .exp-dims input {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.88rem; padding: 0.48rem 0.65rem; margin: 0;
+    }
+    #exp-dpi-field { transition: opacity 0.15s; }
   </style>
 </head>
 <body>
@@ -361,47 +453,50 @@
       <p class="section-label">Sampling</p>
 
       <div id="n-row">
-        <label class="field-label" for="n-input">Representatives (n)</label>
-        <input type="number" id="n-input" value="5" min="1" step="1" placeholder="e.g. 5"/>
+        <label class="field-label" for="n-input">Representatives (n) <a class="param-help" href="https://github.com/flu-crew/parnas#selecting-best-representatives" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
+        <input type="number" id="n-input" value="5" min="1" step="1" placeholder="e.g. 5" data-tooltip="Number of representative taxa to select from the tree" data-placement="right"/>
       </div>
 
-      <label class="switch-row" id="cover-row">
+      <label class="switch-row" id="cover-row" data-tooltip="Find the minimum number of representatives to cover all taxa within the given radius (requires Radius)" data-placement="right">
         <input type="checkbox" id="cover-cb" role="switch"/>
         <span>Find minimum cover <small>overrides n</small></span>
+        <a class="param-help" href="https://github.com/flu-crew/parnas#specifying-a-coverage-radius" target="_blank" rel="noopener" aria-label="Documentation" onclick="event.stopPropagation()">?</a>
       </label>
 
       <label class="field-label" for="radius-input">
-        Radius <small>branch-length units</small>
+        Radius <small>branch-length units</small> <a class="param-help" href="https://github.com/flu-crew/parnas#specifying-a-coverage-radius" target="_blank" rel="noopener" aria-label="Documentation">?</a>
       </label>
-      <input type="number" id="radius-input" step="any" min="0" placeholder="optional"/>
+      <input type="number" id="radius-input" step="any" min="0" placeholder="optional" data-tooltip="Maximum branch-length distance between each taxon and its nearest representative" data-placement="right"/>
 
-      <label class="switch-row" id="binary-row">
+      <label class="switch-row" id="binary-row" data-tooltip="Score coverage as 0/1 (covered or not) instead of by distance — maximizes number of taxa covered rather than total diversity (requires Radius)" data-placement="right">
         <input type="checkbox" id="binary-cb" role="switch" disabled/>
         <span>Binary scoring <small>requires radius</small></span>
+        <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation" onclick="event.stopPropagation()">?</a>
       </label>
 
       <!-- Prior representatives -->
       <p class="section-label">Prior Representatives</p>
-      <label class="field-label" for="prior-input">Regex pattern</label>
-      <input type="text" id="prior-input" placeholder="e.g. Vaccine.*"/>
+      <label class="field-label" for="prior-input">Regex pattern <a class="param-help" href="https://github.com/flu-crew/parnas#using-prior-representatives" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
+      <input type="text" id="prior-input" placeholder="e.g. Vaccine.*" data-tooltip="Regular expression matching taxa to treat as pre-existing representatives" data-placement="right"/>
 
-      <label class="switch-row" id="evaluate-row">
+      <label class="switch-row" id="evaluate-row" data-tooltip="Evaluate the diversity coverage of the prior representatives instead of selecting new ones" data-placement="right">
         <input type="checkbox" id="evaluate-cb" role="switch"/>
         <span>Evaluate prior <small>don't sample new</small></span>
+        <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation" onclick="event.stopPropagation()">?</a>
       </label>
 
       <!-- Exclusions -->
       <details class="field-group">
         <summary>Exclusions</summary>
         <div class="group-body">
-          <label class="field-label" for="exc-rep">Exclude from selection <small>regex</small></label>
-          <input type="text" id="exc-rep" placeholder="e.g. Reference.*"/>
-          <label class="field-label" for="exc-obj">Exclude from objective <small>regex</small></label>
-          <input type="text" id="exc-obj" placeholder="e.g. Outgroup.*"/>
-          <label class="field-label" for="exc-full">Fully exclude <small>regex</small></label>
-          <input type="text" id="exc-full" placeholder="e.g. Duplicate.*"/>
-          <label class="field-label" for="constrain">Constrain to <small>regex</small></label>
-          <input type="text" id="constrain" placeholder="e.g. Clade_A.*"/>
+          <label class="field-label" for="exc-rep">Exclude from selection <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
+          <input type="text" id="exc-rep" placeholder="e.g. Reference.*" data-tooltip="Cannot be chosen as a representative but still counts toward the objective" data-placement="right"/>
+          <label class="field-label" for="exc-obj">Exclude from objective <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
+          <input type="text" id="exc-obj" placeholder="e.g. Outgroup.*" data-tooltip="Can be selected as a representative but does not count toward the objective" data-placement="right"/>
+          <label class="field-label" for="exc-full">Fully exclude <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
+          <input type="text" id="exc-full" placeholder="e.g. Duplicate.*" data-tooltip="Matching taxa are completely ignored by PARNAS" data-placement="right"/>
+          <label class="field-label" for="constrain">Constrain to <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
+          <input type="text" id="constrain" placeholder="e.g. Clade_A.*" data-tooltip="Restrict representative selection to only taxa matching this regex" data-placement="right"/>
         </div>
       </details>
 
@@ -409,7 +504,7 @@
       <details class="field-group">
         <summary>Weights</summary>
         <div class="group-body">
-          <label class="field-label">CSV file <small>taxon, weight columns</small></label>
+          <label class="field-label">CSV file <small>taxon, weight columns</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
           <div class="compact-file">
             <button type="button" class="compact-file-btn" id="weights-btn">Choose CSV</button>
             <span class="compact-file-name empty" id="weights-name">No file selected</span>
@@ -423,9 +518,9 @@
         <summary>Sequence Divergence</summary>
         <div class="group-body">
           <label class="field-label" for="threshold-input">
-            Similarity threshold <small>% (0–100)</small>
+            Similarity threshold <small>% (0–100)</small> <a class="param-help" href="https://github.com/flu-crew/parnas#specifying-a-coverage-radius" target="_blank" rel="noopener" aria-label="Documentation">?</a>
           </label>
-          <input type="number" id="threshold-input" step="0.1" min="0.1" max="99.9" placeholder="e.g. 95"/>
+          <input type="number" id="threshold-input" step="0.1" min="0.1" max="99.9" placeholder="e.g. 95" data-tooltip="Sequence similarity threshold (0–100) used to re-scale tree edges based on substitutions; substitute for Radius" data-placement="right"/>
           <div id="alignment-section" style="display:none">
             <label class="field-label">Sequence type</label>
             <div class="radio-row">
@@ -445,6 +540,12 @@
       <!-- Run -->
       <button id="run-btn" type="button">Run Analysis</button>
 
+
+    </aside>
+
+    <!-- ── Viz area ──────────────────────────────────────────── -->
+    <main class="viz-area">
+
       <!-- Results -->
       <div id="results-panel">
         <p class="section-label">Results</p>
@@ -454,22 +555,18 @@
           <div id="diversity-pill" class="diversity-pill" style="display:none">
             Diversity covered:&nbsp;<strong id="diversity-val">—</strong>
           </div>
-          <p class="section-label" style="margin-top:0.6rem">Representatives</p>
+          <p class="section-label" style="margin-top:0.4rem">Representatives</p>
           <ul class="rep-list" id="rep-list"></ul>
         </div>
 
         <!-- Evaluate mode results -->
         <div id="eval-results" style="display:none">
           <div class="stat-grid" id="eval-stats"></div>
-          <p class="section-label" style="margin-top:0.6rem">Best Representatives</p>
+          <p class="section-label" style="margin-top:0.4rem">Best Representatives</p>
           <ul class="rep-list" id="eval-rep-list"></ul>
         </div>
       </div>
 
-    </aside>
-
-    <!-- ── Viz area ──────────────────────────────────────────── -->
-    <main class="viz-area">
       <div class="viz-toolbar">
         <span class="viz-title">Phylogenetic Tree</span>
         <span class="viz-spacer"></span>
@@ -477,6 +574,14 @@
           <button class="toggle-btn active" data-layout="rectangular">Rectangular</button>
           <button class="toggle-btn" data-layout="radial">Radial</button>
         </div>
+        <button id="export-btn" class="toolbar-btn" style="display:none" aria-label="Export tree image">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Export
+        </button>
       </div>
       <div id="tree-card">
         <div class="state-overlay" id="state-overlay">
@@ -488,6 +593,53 @@
 
   </div>
 </div>
+
+<!-- Off-screen container for export re-render -->
+<div id="exp-render-stage" aria-hidden="true" style="position:fixed;left:-9999px;top:0;pointer-events:none;"></div>
+
+<!-- ── Export dialog ──────────────────────────────────────── -->
+<dialog id="export-dialog">
+  <div class="exp-header">Export Tree Image</div>
+  <div class="exp-body">
+    <div data-tooltip="Vector (SVG) or raster (PNG/JPG/EPS) output format. SVG is resolution-independent; raster formats are scaled by DPI." data-placement="top">
+      <span class="exp-label">Format</span>
+      <div class="exp-fmt-group">
+        <button class="exp-fmt-btn active" data-fmt="svg">SVG</button>
+        <button class="exp-fmt-btn" data-fmt="png">PNG</button>
+        <button class="exp-fmt-btn" data-fmt="jpg">JPG</button>
+        <button class="exp-fmt-btn" data-fmt="eps">EPS</button>
+      </div>
+    </div>
+    <div data-tooltip="Background color of the exported image — independent of the current app theme." data-placement="top">
+      <span class="exp-label">Background</span>
+      <div class="exp-fmt-group" id="exp-theme-group">
+        <button class="exp-fmt-btn active" data-exptheme="dark">Dark</button>
+        <button class="exp-fmt-btn" data-exptheme="light">Light</button>
+      </div>
+    </div>
+    <div class="exp-dims">
+      <div>
+        <label class="exp-label" for="exp-width">Width (px)</label>
+        <input type="number" id="exp-width" value="1200" min="100" step="1"
+               data-tooltip="Output width in pixels. For raster formats the actual canvas width is Width × (DPI ÷ 96)." data-placement="top"/>
+      </div>
+      <div>
+        <label class="exp-label" for="exp-height">Height (px)</label>
+        <input type="number" id="exp-height" value="800" min="100" step="1"
+               data-tooltip="Output height in pixels. For raster formats the actual canvas height is Height × (DPI ÷ 96)." data-placement="top"/>
+      </div>
+      <div id="exp-dpi-field">
+        <label class="exp-label" for="exp-dpi">DPI</label>
+        <input type="number" id="exp-dpi" value="96" min="72" max="600" step="1"
+               data-tooltip="Dots per inch — scales the raster canvas resolution. 96 = screen, 150 = web-print, 300 = print, 600 = high-res print. Has no effect on SVG." data-placement="top"/>
+      </div>
+    </div>
+  </div>
+  <div class="exp-footer">
+    <button id="exp-cancel-btn" class="secondary outline">Cancel</button>
+    <button id="exp-download-btn">Download</button>
+  </div>
+</dialog>
 
 <script>
 (function () {
@@ -629,6 +781,7 @@
       renderTree(data);
       showResults(data);
       document.getElementById("layout-toggle").style.display = "flex";
+      document.getElementById("export-btn").style.display = "flex";
     } catch (err) {
       showOverlay("error","✕","Error: " + err.message);
       console.error(err);
@@ -855,6 +1008,246 @@
     if (lastData) renderTree(lastData);
   });
 
+  /* ── Export ─────────────────────────────────────────────────── */
+  let exportFormat = 'svg';
+  let exportTheme  = document.documentElement.getAttribute('data-theme') || 'dark';
+
+  const exportDialog   = document.getElementById('export-dialog');
+  const expDownloadBtn = document.getElementById('exp-download-btn');
+
+  /* Open dialog – seed inputs from current tree SVG */
+  document.getElementById('export-btn').addEventListener('click', () => {
+    const svg = document.querySelector('#tree-card svg');
+    if (svg) {
+      document.getElementById('exp-width').value  = Math.round(parseFloat(svg.getAttribute('width'))  || svg.clientWidth  || 1200);
+      document.getElementById('exp-height').value = Math.round(parseFloat(svg.getAttribute('height')) || svg.clientHeight || 800);
+    }
+    // Sync theme toggle to current app theme
+    exportTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    document.querySelectorAll('#exp-theme-group .exp-fmt-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.exptheme === exportTheme);
+    });
+    exportDialog.showModal();
+  });
+
+  document.getElementById('exp-cancel-btn').addEventListener('click', () => exportDialog.close());
+  exportDialog.addEventListener('click', e => { if (e.target === exportDialog) exportDialog.close(); });
+
+  /* Format buttons */
+  document.querySelectorAll('[data-fmt]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      exportFormat = btn.dataset.fmt;
+      const isSvg = exportFormat === 'svg';
+      document.getElementById('exp-dpi-field').style.opacity = isSvg ? '0.4' : '1';
+      document.getElementById('exp-dpi').disabled = isSvg;
+    });
+  });
+
+  /* Background theme toggle */
+  document.querySelectorAll('[data-exptheme]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-exptheme]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      exportTheme = btn.dataset.exptheme;
+    });
+  });
+
+  /* Re-render tree with export-theme colors into the off-screen stage */
+  function _renderSvgForExport(data, width, height, theme) {
+    const isDark    = theme === 'dark';
+    const dimEdge   = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.18)';
+    const dimText   = isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.28)';
+    const mutedFill = isDark ? 'rgba(255,255,255,0.4)'  : 'rgba(0,0,0,0.45)';
+
+    const colors  = data.colors  || {};
+    const n_taxa  = data.n_taxa  || 50;
+    const repsSet = new Set([
+      ...(data.representatives      || []),
+      ...(data.best_representatives || []),
+      ...(data.prior_centers        || []),
+    ]);
+    const fontSize = n_taxa <= 50 ? 12 : n_taxa <= 150 ? 10 : n_taxa <= 400 ? 8 : 7;
+
+    const stage = document.getElementById('exp-render-stage');
+    stage.innerHTML = '';
+
+    const treeObj = new phylotree.phylotree(data.tree);
+    if (treeObj.nodes) propagateColors(treeObj.nodes, colors);
+
+    const display = treeObj.render({
+      container: stage,
+      width:  width,
+      height: height,
+      'is-radial':          isRadial,
+      'left-right-spacing': 'fixed-step',
+      'top-bottom-spacing': 'fit-size',
+      'font-size':          fontSize,
+      'draw-size-bubbles':  false,
+      'show-scale':         false,
+      'node-styler': function(element, node) {
+        const name   = node.data && node.data.name;
+        const isLeaf = !node.children || node.children.length === 0;
+        if (name && colors[name]) {
+          const color = colors[name]; const isRep = repsSet.has(name);
+          element.select('circle')
+            .attr('r', isRep ? 7 : 4)
+            .style('fill',         color)
+            .style('stroke',       isRep ? (isDark ? '#ffffff' : '#000000') : 'none')
+            .style('stroke-width', isRep ? '2px' : '0');
+          element.select('text')
+            .style('font-family', '"JetBrains Mono", monospace')
+            .style('font-size',   isRep ? (fontSize + 1) + 'px' : fontSize + 'px')
+            .style('font-weight', isRep ? '700' : '400')
+            .style('fill',        isRep ? color : mutedFill);
+        } else if (isLeaf && name) {
+          element.select('circle').attr('r', 2).style('fill', dimText).style('stroke', 'none');
+          element.select('text')
+            .style('font-family', '"Outfit", sans-serif')
+            .style('font-size',   fontSize + 'px')
+            .style('fill',        dimText);
+        } else {
+          element.select('circle').attr('r', 0).style('fill', 'none');
+          element.select('text').style('font-size', '0px');
+        }
+      },
+      'edge-styler': function(element, edge) {
+        const c = edge.target && edge.target._displayColor;
+        element.style('stroke', c || dimEdge).style('stroke-width', '1.5px').style('fill', 'none');
+      },
+    });
+    stage.appendChild(display.show());
+    return stage.querySelector('svg');
+  }
+
+  /* Download */
+  expDownloadBtn.addEventListener('click', async () => {
+    if (!lastData) return;
+
+    const width   = Math.max(100, parseInt(document.getElementById('exp-width').value)  || 1200);
+    const height  = Math.max(100, parseInt(document.getElementById('exp-height').value) || 800);
+    const dpi     = Math.max(72,  parseInt(document.getElementById('exp-dpi').value)    || 96);
+    const canvasW = Math.round(width  * dpi / 96);
+    const canvasH = Math.round(height * dpi / 96);
+    const bgColor = exportTheme === 'light' ? '#f5f7fa' : '#0d1117';
+
+    expDownloadBtn.setAttribute('aria-busy', 'true');
+    expDownloadBtn.textContent = 'Exporting…';
+
+    try {
+      const svg = _renderSvgForExport(lastData, width, height, exportTheme);
+      if (exportFormat === 'svg') {
+        doExportSVG(svg, width, height, bgColor);
+      } else {
+        const canvas = await svgToCanvas(svg, canvasW, canvasH, bgColor);
+        if (exportFormat === 'png')      doExportCanvas(canvas, 'png');
+        else if (exportFormat === 'jpg') doExportCanvas(canvas, 'jpg');
+        else if (exportFormat === 'eps') doExportEPS(canvas, width, height, dpi);
+      }
+      exportDialog.close();
+    } catch (err) {
+      console.error('Export failed:', err);
+      expDownloadBtn.textContent = 'Error — retry';
+      return;
+    } finally {
+      expDownloadBtn.removeAttribute('aria-busy');
+      expDownloadBtn.textContent = 'Download';
+      document.getElementById('exp-render-stage').innerHTML = '';
+    }
+  });
+
+  function doExportSVG(svgEl, width, height, bgColor) {
+    const clone = svgEl.cloneNode(true);
+    const origW = parseFloat(svgEl.getAttribute('width'))  || svgEl.clientWidth;
+    const origH = parseFloat(svgEl.getAttribute('height')) || svgEl.clientHeight;
+    if (origW && origH) clone.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
+    clone.setAttribute('width', width);
+    clone.setAttribute('height', height);
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('width', '100%'); bgRect.setAttribute('height', '100%');
+    bgRect.setAttribute('fill', bgColor);
+    clone.insertBefore(bgRect, clone.firstChild);
+    const str = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
+    _downloadBlob(new Blob([str], {type: 'image/svg+xml;charset=utf-8'}), 'parnas-tree.svg');
+  }
+
+  async function svgToCanvas(svgEl, width, height, bgColor) {
+    const clone = svgEl.cloneNode(true);
+    const origW = parseFloat(svgEl.getAttribute('width'))  || svgEl.clientWidth;
+    const origH = parseFloat(svgEl.getAttribute('height')) || svgEl.clientHeight;
+    if (origW && origH) clone.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
+    clone.setAttribute('width', width);
+    clone.setAttribute('height', height);
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('width', '100%'); bgRect.setAttribute('height', '100%');
+    bgRect.setAttribute('fill', bgColor);
+    clone.insertBefore(bgRect, clone.firstChild);
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob   = new Blob([svgStr], {type: 'image/svg+xml;charset=utf-8'});
+    const url    = URL.createObjectURL(blob);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, width, height);
+
+    await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload  = () => { ctx.drawImage(img, 0, 0, width, height); URL.revokeObjectURL(url); resolve(); };
+      img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+      img.src = url;
+    });
+    return canvas;
+  }
+
+  function doExportCanvas(canvas, fmt) {
+    const mime = fmt === 'jpg' ? 'image/jpeg' : 'image/png';
+    canvas.toBlob(blob => _downloadBlob(blob, `parnas-tree.${fmt}`), mime, 0.95);
+  }
+
+  function doExportEPS(canvas, width, height, dpi) {
+    // Physical size in points from logical px (96 px/in baseline), independent of raster DPI
+    const ptW  = Math.round((width  / 96) * 72);
+    const ptH  = Math.round((height / 96) * 72);
+    // Actual raster dimensions come from the canvas (already scaled by DPI)
+    const imgW = canvas.width;
+    const imgH = canvas.height;
+
+    const b64    = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+    const binary = atob(b64);
+    let hex = '';
+    for (let i = 0; i < binary.length; i++) {
+      hex += binary.charCodeAt(i).toString(16).padStart(2, '0');
+      if ((i + 1) % 40 === 0) hex += '\n';
+    }
+
+    const eps =
+`%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 ${ptW} ${ptH}
+%%EndComments
+gsave
+${ptW} ${ptH} scale
+${imgW} ${imgH} 8 [${imgW} 0 0 -${imgH} 0 ${imgH}]
+currentfile /ASCIIHexDecode filter /DCTDecode filter
+false 3 colorimage
+${hex}
+>
+grestore
+%%EOF`;
+    _downloadBlob(new Blob([eps], {type: 'application/postscript'}), 'parnas-tree.eps');
+  }
+
+  function _downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+
   /* ── Helpers ────────────────────────────────────────────────── */
   function escapeHtml(s) {
     return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -862,5 +1255,6 @@
 
 })();
 </script>
+
 </body>
 </html>

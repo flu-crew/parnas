@@ -2,6 +2,7 @@
 import io
 import os
 import re
+import sys
 import random as rnd
 import tempfile
 import traceback
@@ -30,7 +31,12 @@ from parnas.medoids import (
 from parnas.medoids.medoid_utils import get_centers_score, compute_percent_coverage
 from parnas.options import reweigh_tree_ancestral
 
-WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+# When frozen by PyInstaller (--onefile), __file__ is the executable itself
+# and all package data is extracted to sys._MEIPASS.
+if getattr(sys, "frozen", False):
+    WEB_DIR = os.path.join(sys._MEIPASS, "parnas", "web")  # type: ignore[attr-defined]
+else:
+    WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 app = Flask(__name__)
 
 
