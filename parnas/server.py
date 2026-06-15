@@ -85,6 +85,48 @@ def _extract_colors(tree: Tree) -> dict:
     }
 
 
+def _build_colors(tree: Tree, representatives: list, prior_centers: list) -> dict:
+    """
+    Build a colors dict where each covered sample gets the same color as its
+    representative.  color_by_clusters only colors representative taxa in the
+    taxon namespace (covered taxa are set to black); this function reads the
+    'center' leaf annotation to propagate the representative's color to every
+    sample it covers.
+    """
+    prior_centers = prior_centers or []
+    all_reps   = set(representatives)
+    all_prior  = set(prior_centers)
+
+    # Collect colors that color_by_clusters already assigned to representatives
+    # and prior centers (these are correct).
+    rep_colors: dict = {}
+    for t in tree.taxon_namespace:
+        color = t.annotations.get_value("!color")
+        if color and (t.label in all_reps or t.label in all_prior):
+            rep_colors[t.label] = color
+
+    colors = dict(rep_colors)
+    prior_color = rep_colors.get(prior_centers[0]) if prior_centers else None
+
+    # Propagate each representative's color to the leaves it covers.
+    for leaf in tree.leaf_nodes():
+        label = leaf.taxon.label if leaf.taxon else None
+        if not label or label in all_reps or label in all_prior:
+            continue
+        center_val = leaf.annotations.get_value("center")
+        if center_val is None:
+            continue
+        center_idx = int(center_val)
+        if center_idx < 0 and prior_color:
+            colors[label] = prior_color
+        elif 0 <= center_idx < len(representatives):
+            rep = representatives[center_idx]
+            if rep in rep_colors:
+                colors[label] = rep_colors[rep]
+
+    return colors
+
+
 def _newick(tree: Tree) -> str:
     buf = io.StringIO()
     tree.write(file=buf, schema="newick")
@@ -96,6 +138,11 @@ def _newick(tree: Tree) -> str:
 @app.route("/")
 def index():
     return send_from_directory(WEB_DIR, "index.html")
+
+
+@app.route("/<path:filename>")
+def static_files(filename):
+    return send_from_directory(WEB_DIR, filename)
 
 
 @app.route("/api/run", methods=["POST"])
@@ -243,7 +290,7 @@ def run_parnas():
                     "mode":          "evaluate_cover",
                     "tree":          _newick(query_tree),
                     "prior_centers": prior_centers,
-                    "colors":        _extract_colors(query_tree),
+                    "colors":        _build_colors(query_tree, prior_centers, []),
                     "coverage_pct":  round(pct * 100, 2),
                     "n_taxa":        n_taxa,
                 })
@@ -281,7 +328,7 @@ def run_parnas():
                 "tree":                  _newick(query_tree),
                 "prior_centers":         prior_centers,
                 "best_representatives":  reps,
-                "colors":                _extract_colors(query_tree),
+                "colors":                _build_colors(query_tree, reps, prior_centers),
                 "prior_diversity":       round(prior_diversity, 2) if prior_diversity is not None else None,
                 "best_diversity":        round(best_diversity,  2) if best_diversity  is not None else None,
                 "percentile":            round(percentile, 1),
@@ -336,7 +383,7 @@ def run_parnas():
             "mode":            "sample",
             "representatives": representatives,
             "prior_centers":   prior_centers or [],
-            "colors":          _extract_colors(query_tree),
+            "colors":          _build_colors(query_tree, representatives, prior_centers or []),
             "clusters":        clusters,
             "tree":            _newick(query_tree),
             "diversity":       float(diversity_scores[-1]) if diversity_scores else None,

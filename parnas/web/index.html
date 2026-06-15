@@ -8,12 +8,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
 
-  <script src="https://cdn.jsdelivr.net/npm/underscore@1.13.6/underscore-min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
-  <script>window._$1 = window._;</script>
-
-  <link rel="stylesheet" href="https://unpkg.com/phylotree@2.6.0/dist/phylotree.css" />
-  <script src="https://unpkg.com/phylotree@2.6.0/dist/phylotree.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.17/paper-full.min.js"></script>
 
   <style>
     /* ── Design tokens ───────────────────────────────────────── */
@@ -220,6 +215,15 @@
     /* ── Results panel ───────────────────────────────────────── */
     #results-panel { display: none; }
 
+    #sweep-bar {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.35rem 0.75rem; border-top: 1px solid var(--border);
+      background: var(--surface); flex-wrap: wrap;
+    }
+    .sweep-n { font-size: 0.82rem; min-width: 54px; text-align: center; }
+    .sweep-div { font-size: 0.78rem; opacity: 0.7; flex: 1; }
+    #sweep-chart { border-radius: 4px; background: var(--bg); }
+
     .diversity-pill {
       display: inline-flex; align-items: center; gap: 0.4rem;
       background: rgba(0,229,200,0.08); border: 1px solid rgba(0,229,200,0.25);
@@ -292,12 +296,23 @@
     .state-overlay .state-icon { font-size: 2.5rem; opacity: 0.35; }
     .state-overlay.error { color: #f85149; }
 
-    #tree-card svg { display: block; }
+    #tree-card svg { display: block; transform-origin: top left; transition: transform 0.1s; }
 
     /* Scrollbar */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.25); border-radius: 10px; }
+
+    /* ── Field error highlight ───────────────────────────────── */
+    .field-error {
+      outline: 2px solid rgba(248,81,73,0.8) !important;
+      outline-offset: 1px;
+      background: rgba(248,81,73,0.06) !important;
+    }
+    .drop-zone-error {
+      border-color: rgba(248,81,73,0.8) !important;
+      background: rgba(248,81,73,0.06) !important;
+    }
 
     /* ── Param help links ─────────────────────────────────────── */
     .param-help {
@@ -390,6 +405,96 @@
       font-size: 0.88rem; padding: 0.48rem 0.65rem; margin: 0;
     }
     #exp-dpi-field { transition: opacity 0.15s; }
+
+    /* ── Canvas tree card ────────────────────────────────────── */
+    #tree-canvas {
+      display: block; width: 100%; height: 100%;
+      border-radius: 10px;
+    }
+    #tree-card { overflow: hidden; }
+
+    /* ── Visual Options drawer ───────────────────────────────── */
+    #vopt-panel {
+      position: absolute; right: 0; top: 0; bottom: 0;
+      width: 260px; z-index: 20;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+      display: none;
+      box-shadow: -4px 0 16px rgba(0,0,0,0.18);
+    }
+    .vopt-panel { display: flex; flex-direction: column; }
+    .vopt-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.7rem 0.9rem 0.5rem;
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.14em; color: var(--text-muted);
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .vopt-close {
+      background: none; border: none; color: var(--text-muted); cursor: pointer;
+      font-size: 0.85rem; padding: 0; margin: 0; line-height: 1;
+    }
+    .vopt-section {
+      border-bottom: 1px solid var(--border);
+    }
+    .vopt-section > summary {
+      font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.12em; color: var(--text-muted);
+      cursor: pointer; padding: 0.55rem 0.9rem;
+      list-style: none; display: flex; align-items: center;
+      user-select: none;
+    }
+    .vopt-section > summary::-webkit-details-marker { display: none; }
+    .vopt-section > summary::after {
+      content: "▾"; margin-left: auto; font-size: 0.8rem; transition: transform 0.15s;
+    }
+    .vopt-section[open] > summary::after { transform: rotate(-180deg); }
+    .vopt-body {
+      padding: 0.5rem 0.9rem 0.75rem;
+      display: flex; flex-direction: column; gap: 0.1rem;
+    }
+    .vopt-hint {
+      font-size: 0.7rem; color: var(--text-muted); margin: 0; line-height: 1.4;
+    }
+    .vopt-label {
+      font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-muted); margin-top: 0.4rem;
+      display: block;
+    }
+    .vopt-mono {
+      font-family: "JetBrains Mono", monospace; font-size: 0.68rem; color: var(--accent);
+    }
+    .vopt-row {
+      display: flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem;
+    }
+    .vopt-input {
+      flex: 1; font-size: 0.75rem; padding: 0.28rem 0.5rem;
+      background: var(--bg-hover); border: 1px solid var(--border);
+      border-radius: 5px; color: inherit; font-family: inherit;
+    }
+    .vopt-color-swatch {
+      width: 28px; height: 24px; border: 1px solid var(--border);
+      border-radius: 4px; cursor: pointer; padding: 1px; background: none;
+      flex-shrink: 0;
+    }
+    .vopt-btn-sm {
+      font-size: 0.68rem; padding: 0.22rem 0.55rem;
+      background: var(--bg-hover); border: 1px solid var(--border);
+      border-radius: 5px; cursor: pointer; color: var(--text-muted);
+      white-space: nowrap; transition: border-color 0.15s, color 0.15s;
+    }
+    .vopt-btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+    .vopt-btn-sm.primary { border-color: rgba(0,229,200,0.4); color: var(--accent); }
+    .vopt-btn-sm.danger:hover { border-color: #f85149; color: #f85149; }
+    .vopt-switch-row {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.78rem; cursor: pointer; margin: 0.2rem 0;
+    }
+    .vopt-switch-row input[type="checkbox"] { margin: 0; flex-shrink: 0; }
+    .vopt-divider {
+      border-top: 1px solid var(--border); margin: 0.5rem 0;
+    }
   </style>
 </head>
 <body>
@@ -454,10 +559,10 @@
 
       <div id="n-row">
         <label class="field-label" for="n-input">Representatives (n) <a class="param-help" href="https://github.com/flu-crew/parnas#selecting-best-representatives" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
-        <input type="number" id="n-input" value="5" min="1" step="1" placeholder="e.g. 5" data-tooltip="Number of representative taxa to select from the tree" data-placement="right"/>
+        <input type="number" id="n-input" value="5" min="1" step="1" placeholder="e.g. 5" data-tooltip="Number of representative taxa to select from the tree" data-placement="top"/>
       </div>
 
-      <label class="switch-row" id="cover-row" data-tooltip="Find the minimum number of representatives to cover all taxa within the given radius (requires Radius)" data-placement="right">
+      <label class="switch-row" id="cover-row" data-tooltip="Find the minimum number of representatives to cover all taxa within the given radius (requires Radius)" data-placement="top">
         <input type="checkbox" id="cover-cb" role="switch"/>
         <span>Find minimum cover <small>overrides n</small></span>
         <a class="param-help" href="https://github.com/flu-crew/parnas#specifying-a-coverage-radius" target="_blank" rel="noopener" aria-label="Documentation" onclick="event.stopPropagation()">?</a>
@@ -466,9 +571,9 @@
       <label class="field-label" for="radius-input">
         Radius <small>branch-length units</small> <a class="param-help" href="https://github.com/flu-crew/parnas#specifying-a-coverage-radius" target="_blank" rel="noopener" aria-label="Documentation">?</a>
       </label>
-      <input type="number" id="radius-input" step="any" min="0" placeholder="optional" data-tooltip="Maximum branch-length distance between each taxon and its nearest representative" data-placement="right"/>
+      <input type="number" id="radius-input" step="any" min="0" placeholder="optional" data-tooltip="Maximum branch-length distance between each taxon and its nearest representative" data-placement="top"/>
 
-      <label class="switch-row" id="binary-row" data-tooltip="Score coverage as 0/1 (covered or not) instead of by distance — maximizes number of taxa covered rather than total diversity (requires Radius)" data-placement="right">
+      <label class="switch-row" id="binary-row" data-tooltip="Score coverage as 0/1 (covered or not) instead of by distance — maximizes number of taxa covered rather than total diversity (requires Radius)" data-placement="top">
         <input type="checkbox" id="binary-cb" role="switch" disabled/>
         <span>Binary scoring <small>requires radius</small></span>
         <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation" onclick="event.stopPropagation()">?</a>
@@ -477,9 +582,9 @@
       <!-- Prior representatives -->
       <p class="section-label">Prior Representatives</p>
       <label class="field-label" for="prior-input">Regex pattern <a class="param-help" href="https://github.com/flu-crew/parnas#using-prior-representatives" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
-      <input type="text" id="prior-input" placeholder="e.g. Vaccine.*" data-tooltip="Regular expression matching taxa to treat as pre-existing representatives" data-placement="right"/>
+      <input type="text" id="prior-input" placeholder="e.g. Vaccine.*" data-tooltip="Regular expression matching taxa to treat as pre-existing representatives" data-placement="top"/>
 
-      <label class="switch-row" id="evaluate-row" data-tooltip="Evaluate the diversity coverage of the prior representatives instead of selecting new ones" data-placement="right">
+      <label class="switch-row" id="evaluate-row" data-tooltip="Evaluate the diversity coverage of the prior representatives instead of selecting new ones" data-placement="top">
         <input type="checkbox" id="evaluate-cb" role="switch"/>
         <span>Evaluate prior <small>don't sample new</small></span>
         <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation" onclick="event.stopPropagation()">?</a>
@@ -490,13 +595,13 @@
         <summary>Exclusions</summary>
         <div class="group-body">
           <label class="field-label" for="exc-rep">Exclude from selection <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
-          <input type="text" id="exc-rep" placeholder="e.g. Reference.*" data-tooltip="Cannot be chosen as a representative but still counts toward the objective" data-placement="right"/>
+          <input type="text" id="exc-rep" placeholder="e.g. Reference.*" data-tooltip="Cannot be chosen as a representative but still counts toward the objective" data-placement="top"/>
           <label class="field-label" for="exc-obj">Exclude from objective <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
-          <input type="text" id="exc-obj" placeholder="e.g. Outgroup.*" data-tooltip="Can be selected as a representative but does not count toward the objective" data-placement="right"/>
+          <input type="text" id="exc-obj" placeholder="e.g. Outgroup.*" data-tooltip="Can be selected as a representative but does not count toward the objective" data-placement="top"/>
           <label class="field-label" for="exc-full">Fully exclude <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
-          <input type="text" id="exc-full" placeholder="e.g. Duplicate.*" data-tooltip="Matching taxa are completely ignored by PARNAS" data-placement="right"/>
+          <input type="text" id="exc-full" placeholder="e.g. Duplicate.*" data-tooltip="Matching taxa are completely ignored by PARNAS" data-placement="top"/>
           <label class="field-label" for="constrain">Constrain to <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
-          <input type="text" id="constrain" placeholder="e.g. Clade_A.*" data-tooltip="Restrict representative selection to only taxa matching this regex" data-placement="right"/>
+          <input type="text" id="constrain" placeholder="e.g. Clade_A.*" data-tooltip="Restrict representative selection to only taxa matching this regex" data-placement="top"/>
         </div>
       </details>
 
@@ -520,7 +625,7 @@
           <label class="field-label" for="threshold-input">
             Similarity threshold <small>% (0–100)</small> <a class="param-help" href="https://github.com/flu-crew/parnas#specifying-a-coverage-radius" target="_blank" rel="noopener" aria-label="Documentation">?</a>
           </label>
-          <input type="number" id="threshold-input" step="0.1" min="0.1" max="99.9" placeholder="e.g. 95" data-tooltip="Sequence similarity threshold (0–100) used to re-scale tree edges based on substitutions; substitute for Radius" data-placement="right"/>
+          <input type="number" id="threshold-input" step="0.1" min="0.1" max="99.9" placeholder="e.g. 95" data-tooltip="Sequence similarity threshold (0–100) used to re-scale tree edges based on substitutions; substitute for Radius" data-placement="top"/>
           <div id="alignment-section" style="display:none">
             <label class="field-label">Sequence type</label>
             <div class="radio-row">
@@ -555,7 +660,7 @@
           <div id="diversity-pill" class="diversity-pill" style="display:none">
             Diversity covered:&nbsp;<strong id="diversity-val">—</strong>
           </div>
-          <p class="section-label" style="margin-top:0.4rem">Representatives</p>
+          <p class="section-label" id="rep-label" style="margin-top:0.4rem">Representatives</p>
           <ul class="rep-list" id="rep-list"></ul>
         </div>
 
@@ -567,12 +672,26 @@
         </div>
       </div>
 
+      <!-- Sweep bar (hidden until first sample-mode run) -->
+      <div id="sweep-bar" style="display:none">
+        <button id="sweep-dec" class="toggle-btn" aria-label="Decrease n">−</button>
+        <span id="sweep-n-display" class="sweep-n">n = <strong id="sweep-n-val">1</strong></span>
+        <button id="sweep-inc" class="toggle-btn" aria-label="Increase n">+</button>
+        <span id="sweep-diversity-display" class="sweep-div"></span>
+        <canvas id="sweep-chart" width="220" height="52" style="display:none"></canvas>
+      </div>
+
       <div class="viz-toolbar">
         <span class="viz-title">Phylogenetic Tree</span>
         <span class="viz-spacer"></span>
         <div class="toggle-group" id="layout-toggle" style="display:none">
           <button class="toggle-btn active" data-layout="rectangular">Rectangular</button>
           <button class="toggle-btn" data-layout="radial">Radial</button>
+        </div>
+        <div class="toggle-group" id="zoom-controls" style="display:none">
+          <button class="toggle-btn" id="zoom-out-btn" aria-label="Zoom out">−</button>
+          <button class="toggle-btn" id="zoom-reset-btn" aria-label="Reset zoom">1:1</button>
+          <button class="toggle-btn" id="zoom-in-btn" aria-label="Zoom in">+</button>
         </div>
         <button id="export-btn" class="toolbar-btn" style="display:none" aria-label="Export tree image">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -582,12 +701,20 @@
           </svg>
           Export
         </button>
+        <button id="vopt-btn" class="toolbar-btn" style="display:none" aria-label="Visual options">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+          </svg>
+          Annotate
+        </button>
       </div>
-      <div id="tree-card">
+      <div id="tree-card" style="position:relative">
         <div class="state-overlay" id="state-overlay">
           <span class="state-icon">🌳</span>
           <span>Upload a tree file and run the analysis<br/>to visualize results here.</span>
         </div>
+        <!-- Visual Options drawer -->
+        <div id="vopt-panel"></div>
       </div>
     </main>
 
@@ -608,6 +735,7 @@
         <button class="exp-fmt-btn" data-fmt="png">PNG</button>
         <button class="exp-fmt-btn" data-fmt="jpg">JPG</button>
         <button class="exp-fmt-btn" data-fmt="eps">EPS</button>
+        <button class="exp-fmt-btn" data-fmt="nex">NEXUS</button>
       </div>
     </div>
     <div data-tooltip="Background color of the exported image — independent of the current app theme." data-placement="top">
@@ -637,624 +765,14 @@
   </div>
   <div class="exp-footer">
     <button id="exp-cancel-btn" class="secondary outline">Cancel</button>
+    <button id="exp-save-session-btn" class="secondary outline">Save session</button>
+    <button id="load-session-btn" class="secondary outline">Load session</button>
+    <input type="file" id="load-session-input" accept=".json" style="display:none"/>
     <button id="exp-download-btn">Download</button>
   </div>
 </dialog>
 
-<script>
-(function () {
-  "use strict";
-
-  /* ── State ──────────────────────────────────────────────────── */
-  let treeFile    = null;
-  let weightsFile = null;
-  let alnFile     = null;
-  let lastData    = null;
-  let isRadial    = false;
-
-  /* ── Tree file drop zone ────────────────────────────────────── */
-  const dropZone   = document.getElementById("drop-zone");
-  const treeInput  = document.getElementById("tree-file");
-  const dzPrimary  = document.getElementById("dz-primary");
-  const dzSecondary= document.getElementById("dz-secondary");
-
-  dropZone.addEventListener("click",   () => treeInput.click());
-  dropZone.addEventListener("keydown", e => { if (e.key==="Enter"||e.key===" ") treeInput.click(); });
-  dropZone.addEventListener("dragover",  e => { e.preventDefault(); dropZone.classList.add("drag-active"); });
-  dropZone.addEventListener("dragleave", ()=> dropZone.classList.remove("drag-active"));
-  dropZone.addEventListener("drop", e => {
-    e.preventDefault(); dropZone.classList.remove("drag-active");
-    if (e.dataTransfer.files[0]) setTreeFile(e.dataTransfer.files[0]);
-  });
-  treeInput.addEventListener("change", () => { if (treeInput.files[0]) setTreeFile(treeInput.files[0]); });
-
-  function setTreeFile(f) {
-    treeFile = f;
-    dzPrimary.textContent   = f.name;
-    dzSecondary.textContent = (f.size/1024).toFixed(1) + " KB · click to change";
-  }
-
-  /* ── Compact file pickers ───────────────────────────────────── */
-  function bindFilePicker(btnId, inputId, nameId, onPick) {
-    const btn   = document.getElementById(btnId);
-    const input = document.getElementById(inputId);
-    const nameEl= document.getElementById(nameId);
-    btn.addEventListener("click", () => input.click());
-    input.addEventListener("change", () => {
-      const f = input.files[0];
-      if (!f) return;
-      nameEl.textContent = f.name;
-      nameEl.classList.remove("empty");
-      onPick(f);
-    });
-  }
-
-  bindFilePicker("weights-btn", "weights-file", "weights-name", f => { weightsFile = f; });
-  bindFilePicker("aln-btn",     "aln-file",     "aln-name",     f => { alnFile = f; });
-
-  /* ── Dependent field logic ──────────────────────────────────── */
-  const nInput        = document.getElementById("n-input");
-  const nRow          = document.getElementById("n-row");
-  const coverCb       = document.getElementById("cover-cb");
-  const coverRow      = document.getElementById("cover-row");
-  const radiusInput   = document.getElementById("radius-input");
-  const binaryCb      = document.getElementById("binary-cb");
-  const binaryRow     = document.getElementById("binary-row");
-  const thresholdInput= document.getElementById("threshold-input");
-  const alnSection    = document.getElementById("alignment-section");
-  const evaluateCb    = document.getElementById("evaluate-cb");
-
-  function hasRadius()    { return parseFloat(radiusInput.value)    > 0; }
-  function hasThreshold() { return parseFloat(thresholdInput.value) > 0; }
-
-  function updateDependents() {
-    // binary requires radius
-    const radiusOk = hasRadius();
-    binaryCb.disabled = !radiusOk;
-    binaryRow.classList.toggle("dimmed", !radiusOk);
-    if (!radiusOk) binaryCb.checked = false;
-
-    // cover requires radius or threshold
-    const coverOk = hasRadius() || hasThreshold();
-    coverCb.disabled = !coverOk;
-    coverRow.classList.toggle("dimmed", !coverOk);
-    if (!coverOk) coverCb.checked = false;
-
-    // n disabled when cover is checked
-    const covered = coverCb.checked;
-    nInput.disabled = covered;
-    nRow.style.opacity = covered ? "0.45" : "1";
-
-    // alignment section visible when threshold > 0
-    alnSection.style.display = hasThreshold() ? "block" : "none";
-  }
-
-  radiusInput.addEventListener("input",    updateDependents);
-  thresholdInput.addEventListener("input", updateDependents);
-  coverCb.addEventListener("change",       updateDependents);
-  updateDependents();
-
-  /* ── Run button ─────────────────────────────────────────────── */
-  document.getElementById("run-btn").addEventListener("click", async () => {
-    if (!treeFile) { showOverlay("error","⚠️","Please upload a tree file first."); return; }
-
-    const cover    = coverCb.checked;
-    const evaluate = evaluateCb.checked;
-    const n        = parseInt(nInput.value, 10);
-
-    if (!cover && !evaluate && (!n || n < 1)) {
-      showOverlay("error","⚠️","Please enter a valid number of representatives (≥ 1)."); return;
-    }
-    if (evaluate && !document.getElementById("prior-input").value.trim()) {
-      showOverlay("error","⚠️","Evaluate mode requires a prior regex (--prior)."); return;
-    }
-
-    const btn = document.getElementById("run-btn");
-    btn.setAttribute("aria-busy","true");
-    btn.textContent = "Running…";
-    showOverlay("loading","⏳","Running PARNAS analysis…");
-
-    const fd = new FormData();
-    fd.append("tree",            treeFile);
-    fd.append("n",               n || 1);
-    fd.append("cover",           cover    ? "true" : "false");
-    fd.append("evaluate",        evaluate ? "true" : "false");
-    fd.append("binary",          binaryCb.checked ? "true" : "false");
-    fd.append("prior",           document.getElementById("prior-input").value.trim());
-    fd.append("radius",          radiusInput.value.trim());
-    fd.append("threshold",       thresholdInput.value.trim());
-    fd.append("exclude_rep",     document.getElementById("exc-rep").value.trim());
-    fd.append("exclude_obj",     document.getElementById("exc-obj").value.trim());
-    fd.append("exclude_fully",   document.getElementById("exc-full").value.trim());
-    fd.append("constrain_fully", document.getElementById("constrain").value.trim());
-    fd.append("aln_type", document.querySelector("input[name='aln-type']:checked")?.value || "nt");
-    if (weightsFile) fd.append("weights",   weightsFile);
-    if (alnFile && hasThreshold()) fd.append("alignment", alnFile);
-
-    try {
-      const resp = await fetch("/api/run", { method: "POST", body: fd });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || "Server error");
-
-      lastData = data;
-      hideOverlay();
-      renderTree(data);
-      showResults(data);
-      document.getElementById("layout-toggle").style.display = "flex";
-      document.getElementById("export-btn").style.display = "flex";
-    } catch (err) {
-      showOverlay("error","✕","Error: " + err.message);
-      console.error(err);
-    } finally {
-      btn.removeAttribute("aria-busy");
-      btn.textContent = "Run Analysis";
-    }
-  });
-
-  /* ── Overlay helpers ────────────────────────────────────────── */
-  function showOverlay(type, icon, msg) {
-    const el = document.getElementById("state-overlay");
-    el.className = "state-overlay" + (type === "error" ? " error" : "");
-    el.innerHTML = `<span class="state-icon">${icon}</span><span>${msg}</span>`;
-    el.style.display = "flex";
-  }
-  function hideOverlay() {
-    document.getElementById("state-overlay").style.display = "none";
-  }
-
-  /* ── Results panel ──────────────────────────────────────────── */
-  function showResults(data) {
-    const panel = document.getElementById("results-panel");
-    panel.style.display = "block";
-
-    const sampleDiv = document.getElementById("sample-results");
-    const evalDiv   = document.getElementById("eval-results");
-
-    if (data.mode === "sample") {
-      sampleDiv.style.display = "block";
-      evalDiv.style.display   = "none";
-
-      const pill = document.getElementById("diversity-pill");
-      if (data.diversity != null) {
-        document.getElementById("diversity-val").textContent = data.diversity.toFixed(2) + "%";
-        pill.style.display = "inline-flex";
-      } else {
-        pill.style.display = "none";
-      }
-
-      const list = document.getElementById("rep-list");
-      list.innerHTML = "";
-      (data.representatives || []).forEach(rep => {
-        const li = document.createElement("li");
-        li.className = "rep-item";
-        const color = data.colors[rep] || "#888";
-        li.innerHTML = `<span class="rep-dot" style="background:${color};color:${color}"></span>
-                        <span>${escapeHtml(rep)}</span>`;
-        list.appendChild(li);
-      });
-
-    } else {
-      // evaluate or evaluate_cover
-      sampleDiv.style.display = "none";
-      evalDiv.style.display   = "block";
-
-      const statsEl = document.getElementById("eval-stats");
-      statsEl.innerHTML = "";
-
-      if (data.mode === "evaluate_cover") {
-        statsEl.appendChild(makeStat("Taxa covered within radius", data.coverage_pct + "%"));
-      } else {
-        if (data.prior_diversity != null)
-          statsEl.appendChild(makeStat("Prior diversity",  data.prior_diversity + "%"));
-        if (data.best_diversity != null)
-          statsEl.appendChild(makeStat("Best possible",    data.best_diversity  + "%"));
-        statsEl.appendChild(makeStat("Better than random", data.percentile + "% of sets"));
-      }
-
-      const list = document.getElementById("eval-rep-list");
-      list.innerHTML = "";
-      const reps = data.best_representatives || data.prior_centers || [];
-      reps.forEach(rep => {
-        const li = document.createElement("li");
-        li.className = "rep-item";
-        const color = data.colors[rep] || "#888";
-        li.innerHTML = `<span class="rep-dot" style="background:${color};color:${color}"></span>
-                        <span>${escapeHtml(rep)}</span>`;
-        list.appendChild(li);
-      });
-    }
-  }
-
-  function makeStat(label, value) {
-    const div = document.createElement("div");
-    div.className = "stat-item";
-    div.innerHTML = `<span class="stat-label">${escapeHtml(label)}</span>
-                     <span class="stat-value">${escapeHtml(String(value))}</span>`;
-    return div;
-  }
-
-  /* ── Layout toggle ──────────────────────────────────────────── */
-  document.getElementById("layout-toggle").addEventListener("click", e => {
-    const btn = e.target.closest(".toggle-btn");
-    if (!btn || !lastData) return;
-    document.querySelectorAll(".toggle-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    isRadial = btn.dataset.layout === "radial";
-    renderTree(lastData);
-  });
-
-  /* ── Tree rendering ─────────────────────────────────────────── */
-  function renderTree(data) {
-    const newick  = data.tree;
-    const colors  = data.colors  || {};
-    const n_taxa  = data.n_taxa  || 50;
-
-    // All highlighted nodes: representatives + prior centers
-    const repsSet = new Set([
-      ...(data.representatives      || []),
-      ...(data.best_representatives || []),
-      ...(data.prior_centers        || []),
-    ]);
-
-    const card    = document.getElementById("tree-card");
-    const overlay = document.getElementById("state-overlay");
-    card.innerHTML = "";
-    card.appendChild(overlay);
-
-    try {
-      const treeObj = new phylotree.phylotree(newick);
-      if (treeObj.nodes) propagateColors(treeObj.nodes, colors);
-
-      const cardW = card.clientWidth || 800;
-      // Scale row height by taxa count: generous for small trees, compact for large
-      const rowH  = n_taxa <= 50 ? 28 : n_taxa <= 150 ? 22 : n_taxa <= 400 ? 16 : 12;
-      const treeH = Math.min(Math.max(n_taxa * rowH, 500), 12000);
-      const isDark = document.documentElement.getAttribute("data-theme") !== "light";
-      const dimEdge = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.18)";
-      const dimText = isDark ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.28)";
-      const mutedFill = getComputedStyle(document.documentElement)
-                          .getPropertyValue("--text-muted").trim();
-
-      // Font size tiers
-      const fontSize = n_taxa <= 50 ? 12 : n_taxa <= 150 ? 10 : n_taxa <= 400 ? 8 : 7;
-
-      const display = treeObj.render({
-        container: card,
-        width:  cardW - 4,
-        height: treeH,
-        "is-radial":          isRadial,
-        "left-right-spacing": "fixed-step",
-        "top-bottom-spacing": "fit-size",
-        "font-size":    fontSize,
-        "draw-size-bubbles": false,
-        "show-scale":   false,
-
-        "node-styler": function (element, node) {
-          const name = node.data && node.data.name;
-          const isLeaf = !node.children || node.children.length === 0;
-          if (name && colors[name]) {
-            const color = colors[name];
-            const isRep = repsSet.has(name);
-            element.select("circle")
-              .attr("r", isRep ? 7 : 4)
-              .style("fill",         color)
-              .style("stroke",       isRep ? (isDark ? "#ffffff" : "#000000") : "none")
-              .style("stroke-width", isRep ? "2px" : "0");
-            element.select("text")
-              .style("font-family", '"JetBrains Mono", monospace')
-              .style("font-size",   isRep ? (fontSize + 1) + "px" : fontSize + "px")
-              .style("font-weight", isRep ? "700"  : "400")
-              .style("fill",        isRep ? color  : mutedFill);
-          } else if (isLeaf && name) {
-            element.select("circle").attr("r", 2).style("fill", dimText).style("stroke", "none");
-            element.select("text")
-              .style("font-family", '"Outfit", sans-serif')
-              .style("font-size",   fontSize + "px")
-              .style("fill", dimText);
-          } else {
-            element.select("circle").attr("r", 0).style("fill", "none");
-            element.select("text").style("font-size", "0px");
-          }
-        },
-
-        "edge-styler": function (element, edge) {
-          const c = edge.target && edge.target._displayColor;
-          element
-            .style("stroke",       c || dimEdge)
-            .style("stroke-width", "1.5px")
-            .style("fill",         "none");
-        },
-      });
-
-      card.appendChild(display.show());
-
-    } catch (err) {
-      showOverlay("error", "✕", "Tree rendering failed: " + err.message);
-      console.error(err);
-    }
-  }
-
-  /* DFS: propagate cluster color up to internal nodes when all children agree */
-  function propagateColors(node, colors) {
-    if (!node.children || node.children.length === 0) {
-      node._displayColor = (node.data && colors[node.data.name]) || null;
-      return node._displayColor;
-    }
-    const childColors = node.children.map(c => propagateColors(c, colors));
-    const nonNull = childColors.filter(Boolean);
-    const unique  = new Set(nonNull);
-    node._displayColor = (unique.size === 1 && nonNull.length === childColors.length)
-      ? [...unique][0] : null;
-    return node._displayColor;
-  }
-
-  /* ── Theme toggle ───────────────────────────────────────────── */
-  const themeToggle = document.getElementById("theme-toggle");
-  const iconDark    = document.getElementById("icon-dark");
-  const iconLight   = document.getElementById("icon-light");
-
-  function applyTheme(theme) {
-    document.documentElement.setAttribute("data-theme", theme);
-    iconDark.style.display  = theme === "dark"  ? "block" : "none";
-    iconLight.style.display = theme === "light" ? "block" : "none";
-    localStorage.setItem("parnas-theme", theme);
-  }
-
-  applyTheme(localStorage.getItem("parnas-theme") || "dark");
-
-  themeToggle.addEventListener("click", () => {
-    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-    applyTheme(next);
-    if (lastData) renderTree(lastData);
-  });
-
-  /* ── Export ─────────────────────────────────────────────────── */
-  let exportFormat = 'svg';
-  let exportTheme  = document.documentElement.getAttribute('data-theme') || 'dark';
-
-  const exportDialog   = document.getElementById('export-dialog');
-  const expDownloadBtn = document.getElementById('exp-download-btn');
-
-  /* Open dialog – seed inputs from current tree SVG */
-  document.getElementById('export-btn').addEventListener('click', () => {
-    const svg = document.querySelector('#tree-card svg');
-    if (svg) {
-      document.getElementById('exp-width').value  = Math.round(parseFloat(svg.getAttribute('width'))  || svg.clientWidth  || 1200);
-      document.getElementById('exp-height').value = Math.round(parseFloat(svg.getAttribute('height')) || svg.clientHeight || 800);
-    }
-    // Sync theme toggle to current app theme
-    exportTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-    document.querySelectorAll('#exp-theme-group .exp-fmt-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.exptheme === exportTheme);
-    });
-    exportDialog.showModal();
-  });
-
-  document.getElementById('exp-cancel-btn').addEventListener('click', () => exportDialog.close());
-  exportDialog.addEventListener('click', e => { if (e.target === exportDialog) exportDialog.close(); });
-
-  /* Format buttons */
-  document.querySelectorAll('[data-fmt]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-fmt]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      exportFormat = btn.dataset.fmt;
-      const isSvg = exportFormat === 'svg';
-      document.getElementById('exp-dpi-field').style.opacity = isSvg ? '0.4' : '1';
-      document.getElementById('exp-dpi').disabled = isSvg;
-    });
-  });
-
-  /* Background theme toggle */
-  document.querySelectorAll('[data-exptheme]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-exptheme]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      exportTheme = btn.dataset.exptheme;
-    });
-  });
-
-  /* Re-render tree with export-theme colors into the off-screen stage */
-  function _renderSvgForExport(data, width, height, theme) {
-    const isDark    = theme === 'dark';
-    const dimEdge   = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.18)';
-    const dimText   = isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.28)';
-    const mutedFill = isDark ? 'rgba(255,255,255,0.4)'  : 'rgba(0,0,0,0.45)';
-
-    const colors  = data.colors  || {};
-    const n_taxa  = data.n_taxa  || 50;
-    const repsSet = new Set([
-      ...(data.representatives      || []),
-      ...(data.best_representatives || []),
-      ...(data.prior_centers        || []),
-    ]);
-    const fontSize = n_taxa <= 50 ? 12 : n_taxa <= 150 ? 10 : n_taxa <= 400 ? 8 : 7;
-
-    const stage = document.getElementById('exp-render-stage');
-    stage.innerHTML = '';
-
-    const treeObj = new phylotree.phylotree(data.tree);
-    if (treeObj.nodes) propagateColors(treeObj.nodes, colors);
-
-    const display = treeObj.render({
-      container: stage,
-      width:  width,
-      height: height,
-      'is-radial':          isRadial,
-      'left-right-spacing': 'fixed-step',
-      'top-bottom-spacing': 'fit-size',
-      'font-size':          fontSize,
-      'draw-size-bubbles':  false,
-      'show-scale':         false,
-      'node-styler': function(element, node) {
-        const name   = node.data && node.data.name;
-        const isLeaf = !node.children || node.children.length === 0;
-        if (name && colors[name]) {
-          const color = colors[name]; const isRep = repsSet.has(name);
-          element.select('circle')
-            .attr('r', isRep ? 7 : 4)
-            .style('fill',         color)
-            .style('stroke',       isRep ? (isDark ? '#ffffff' : '#000000') : 'none')
-            .style('stroke-width', isRep ? '2px' : '0');
-          element.select('text')
-            .style('font-family', '"JetBrains Mono", monospace')
-            .style('font-size',   isRep ? (fontSize + 1) + 'px' : fontSize + 'px')
-            .style('font-weight', isRep ? '700' : '400')
-            .style('fill',        isRep ? color : mutedFill);
-        } else if (isLeaf && name) {
-          element.select('circle').attr('r', 2).style('fill', dimText).style('stroke', 'none');
-          element.select('text')
-            .style('font-family', '"Outfit", sans-serif')
-            .style('font-size',   fontSize + 'px')
-            .style('fill',        dimText);
-        } else {
-          element.select('circle').attr('r', 0).style('fill', 'none');
-          element.select('text').style('font-size', '0px');
-        }
-      },
-      'edge-styler': function(element, edge) {
-        const c = edge.target && edge.target._displayColor;
-        element.style('stroke', c || dimEdge).style('stroke-width', '1.5px').style('fill', 'none');
-      },
-    });
-    stage.appendChild(display.show());
-    return stage.querySelector('svg');
-  }
-
-  /* Download */
-  expDownloadBtn.addEventListener('click', async () => {
-    if (!lastData) return;
-
-    const width   = Math.max(100, parseInt(document.getElementById('exp-width').value)  || 1200);
-    const height  = Math.max(100, parseInt(document.getElementById('exp-height').value) || 800);
-    const dpi     = Math.max(72,  parseInt(document.getElementById('exp-dpi').value)    || 96);
-    const canvasW = Math.round(width  * dpi / 96);
-    const canvasH = Math.round(height * dpi / 96);
-    const bgColor = exportTheme === 'light' ? '#f5f7fa' : '#0d1117';
-
-    expDownloadBtn.setAttribute('aria-busy', 'true');
-    expDownloadBtn.textContent = 'Exporting…';
-
-    try {
-      const svg = _renderSvgForExport(lastData, width, height, exportTheme);
-      if (exportFormat === 'svg') {
-        doExportSVG(svg, width, height, bgColor);
-      } else {
-        const canvas = await svgToCanvas(svg, canvasW, canvasH, bgColor);
-        if (exportFormat === 'png')      doExportCanvas(canvas, 'png');
-        else if (exportFormat === 'jpg') doExportCanvas(canvas, 'jpg');
-        else if (exportFormat === 'eps') doExportEPS(canvas, width, height, dpi);
-      }
-      exportDialog.close();
-    } catch (err) {
-      console.error('Export failed:', err);
-      expDownloadBtn.textContent = 'Error — retry';
-      return;
-    } finally {
-      expDownloadBtn.removeAttribute('aria-busy');
-      expDownloadBtn.textContent = 'Download';
-      document.getElementById('exp-render-stage').innerHTML = '';
-    }
-  });
-
-  function doExportSVG(svgEl, width, height, bgColor) {
-    const clone = svgEl.cloneNode(true);
-    const origW = parseFloat(svgEl.getAttribute('width'))  || svgEl.clientWidth;
-    const origH = parseFloat(svgEl.getAttribute('height')) || svgEl.clientHeight;
-    if (origW && origH) clone.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
-    clone.setAttribute('width', width);
-    clone.setAttribute('height', height);
-    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bgRect.setAttribute('width', '100%'); bgRect.setAttribute('height', '100%');
-    bgRect.setAttribute('fill', bgColor);
-    clone.insertBefore(bgRect, clone.firstChild);
-    const str = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(clone);
-    _downloadBlob(new Blob([str], {type: 'image/svg+xml;charset=utf-8'}), 'parnas-tree.svg');
-  }
-
-  async function svgToCanvas(svgEl, width, height, bgColor) {
-    const clone = svgEl.cloneNode(true);
-    const origW = parseFloat(svgEl.getAttribute('width'))  || svgEl.clientWidth;
-    const origH = parseFloat(svgEl.getAttribute('height')) || svgEl.clientHeight;
-    if (origW && origH) clone.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
-    clone.setAttribute('width', width);
-    clone.setAttribute('height', height);
-    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bgRect.setAttribute('width', '100%'); bgRect.setAttribute('height', '100%');
-    bgRect.setAttribute('fill', bgColor);
-    clone.insertBefore(bgRect, clone.firstChild);
-
-    const svgStr = new XMLSerializer().serializeToString(clone);
-    const blob   = new Blob([svgStr], {type: 'image/svg+xml;charset=utf-8'});
-    const url    = URL.createObjectURL(blob);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = width; canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = bgColor;
-    ctx.fillRect(0, 0, width, height);
-
-    await new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload  = () => { ctx.drawImage(img, 0, 0, width, height); URL.revokeObjectURL(url); resolve(); };
-      img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
-      img.src = url;
-    });
-    return canvas;
-  }
-
-  function doExportCanvas(canvas, fmt) {
-    const mime = fmt === 'jpg' ? 'image/jpeg' : 'image/png';
-    canvas.toBlob(blob => _downloadBlob(blob, `parnas-tree.${fmt}`), mime, 0.95);
-  }
-
-  function doExportEPS(canvas, width, height, dpi) {
-    // Physical size in points from logical px (96 px/in baseline), independent of raster DPI
-    const ptW  = Math.round((width  / 96) * 72);
-    const ptH  = Math.round((height / 96) * 72);
-    // Actual raster dimensions come from the canvas (already scaled by DPI)
-    const imgW = canvas.width;
-    const imgH = canvas.height;
-
-    const b64    = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
-    const binary = atob(b64);
-    let hex = '';
-    for (let i = 0; i < binary.length; i++) {
-      hex += binary.charCodeAt(i).toString(16).padStart(2, '0');
-      if ((i + 1) % 40 === 0) hex += '\n';
-    }
-
-    const eps =
-`%!PS-Adobe-3.0 EPSF-3.0
-%%BoundingBox: 0 0 ${ptW} ${ptH}
-%%EndComments
-gsave
-${ptW} ${ptH} scale
-${imgW} ${imgH} 8 [${imgW} 0 0 -${imgH} 0 ${imgH}]
-currentfile /ASCIIHexDecode filter /DCTDecode filter
-false 3 colorimage
-${hex}
->
-grestore
-%%EOF`;
-    _downloadBlob(new Blob([eps], {type: 'application/postscript'}), 'parnas-tree.eps');
-  }
-
-  function _downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a   = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
-  }
-
-  /* ── Helpers ────────────────────────────────────────────────── */
-  function escapeHtml(s) {
-    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  }
-
-})();
-</script>
+<script type="module" src="js/app.js"></script>
 
 </body>
 </html>
