@@ -13,9 +13,8 @@
 
 import { parseNewick }                        from "./newick.js";
 import { leaves, indexByName }                from "./treemodel.js";
-import { rectangularLayout, radialLayout }    from "./layout.js";
+import { rectangularLayout }                  from "./layout.js";
 import { TreeRenderer }                       from "./renderer.js";
-import { AnnotationPanel }                    from "./panel.js";
 import {
   emptyAnnotations, setClusterColors, setLegend, deserialise,
 }                                             from "./annotations.js";
@@ -41,8 +40,6 @@ let renderOpts  = { dark: true, radial: false, fontSize: 11, showSupport: false 
 
 /** @type {TreeRenderer|null} */
 let renderer    = null;
-/** @type {AnnotationPanel|null} */
-let panel       = null;
 /** @type {ResizeObserver|null} */
 let resizeObs   = null;
 /** @type {SweepChart|null} */
@@ -54,54 +51,13 @@ let currentSweepN = 1;
 const treeCard     = document.getElementById("tree-card");
 const stateOverlay = document.getElementById("state-overlay");
 const runBtn       = document.getElementById("run-btn");
-const layoutToggle = document.getElementById("layout-toggle");
 const zoomControls = document.getElementById("zoom-controls");
 const exportBtn    = document.getElementById("export-btn");
-const voptBtn      = document.getElementById("vopt-btn");
-const voptPanel    = document.getElementById("vopt-panel");
 const exportDialog = document.getElementById("export-dialog");
 
 // ── Initialise ─────────────────────────────────────────────────────────────
 
 function init() {
-  // Annotation panel
-  if (voptPanel) {
-    panel = new AnnotationPanel(voptPanel, (newAnn, optsPatch) => {
-      annotations = newAnn;
-      if (optsPatch) {
-        const wasRadial = renderOpts.radial;
-        renderOpts = { ...renderOpts, ...optsPatch };
-        if (optsPatch.radial !== undefined && optsPatch.radial !== wasRadial) {
-          recomputeLayout();
-        }
-      }
-      if (renderer) renderer.setAnnotations(annotations);
-    });
-  }
-
-  // Visual Options toggle
-  if (voptBtn) {
-    voptBtn.addEventListener("click", () => {
-      const hidden = voptPanel.style.display === "none" || !voptPanel.style.display;
-      voptPanel.style.display = hidden ? "block" : "none";
-    });
-  }
-
-  // Layout toggle (rectangular / radial)
-  if (layoutToggle) {
-    layoutToggle.addEventListener("click", e => {
-      const btn = e.target.closest(".toggle-btn");
-      if (!btn || !treeRoot) return;
-      layoutToggle.querySelectorAll(".toggle-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      renderOpts.radial = btn.dataset.layout === "radial";
-      recomputeLayout();
-      if (panel) {
-        document.getElementById("opt-radial").checked = renderOpts.radial;
-      }
-    });
-  }
-
   // Zoom buttons
   document.getElementById("zoom-in-btn")?.addEventListener("click",    () => renderer?.zoom(1.25));
   document.getElementById("zoom-out-btn")?.addEventListener("click",   () => renderer?.zoom(1 / 1.25));
@@ -216,10 +172,8 @@ function wireRunButton() {
       loadAndRender(data);
       showResults(data);
 
-      layoutToggle.style.display = "flex";
       zoomControls.style.display = "flex";
       exportBtn.style.display    = "flex";
-      if (voptBtn) voptBtn.style.display = "flex";
 
       // Show sweep bar only for sample mode (not cover, not evaluate)
       const sweepBar = document.getElementById("sweep-bar");
@@ -265,7 +219,6 @@ function loadAndRender(data) {
     return;
   }
 
-  if (panel) panel.setTree(treeRoot, indexByName(treeRoot));
 
   computeLayout();
   mountRenderer();
@@ -276,9 +229,12 @@ function loadAndRender(data) {
   ]);
   renderOpts.repColors = data.colors || {};
 
+  const _nL = leaves(treeRoot).length;
+  const _canvas = document.getElementById("tree-canvas");
+  if (_canvas) applyCanvasHeight(_canvas, _nL);
   renderer.render(treeRoot, treeCoords, annotations, {
     ...renderOpts,
-    fontSize: computeFontSize(leaves(treeRoot).length),
+    fontSize: computeFontSize(_nL),
   });
 
   hideOverlay();
@@ -287,9 +243,12 @@ function loadAndRender(data) {
 function recomputeLayout() {
   if (!treeRoot) return;
   computeLayout();
+  const _nL2 = leaves(treeRoot).length;
+  const _c2 = document.getElementById("tree-canvas");
+  if (_c2) applyCanvasHeight(_c2, _nL2);
   renderer?.render(treeRoot, treeCoords, annotations, {
     ...renderOpts,
-    fontSize: computeFontSize(leaves(treeRoot).length),
+    fontSize: computeFontSize(_nL2),
   });
 }
 
@@ -307,6 +266,20 @@ function computeFontSize(nLeaves) {
   return 7;
 }
 
+const PX_PER_LEAF = 16;
+
+function canvasHeight(nLeaves) {
+  return Math.max(treeCard.clientHeight || 600, nLeaves * PX_PER_LEAF);
+}
+
+function applyCanvasHeight(canvas, nLeaves) {
+  const h = canvasHeight(nLeaves);
+  canvas.width  = treeCard.clientWidth || canvas.width;
+  canvas.height = h;
+  canvas.style.height = h + "px";
+  if (renderer) renderer.resize();
+}
+
 function mountRenderer() {
   // Clear tree card but keep the state overlay
   treeCard.innerHTML = "";
@@ -315,7 +288,7 @@ function mountRenderer() {
   // Create canvas
   const canvas = document.createElement("canvas");
   canvas.id     = "tree-canvas";
-  canvas.style.cssText = "display:block;width:100%;height:100%";
+  canvas.style.cssText = "display:block;width:100%;";
   canvas.width  = treeCard.clientWidth  || 800;
   canvas.height = treeCard.clientHeight || 600;
   treeCard.appendChild(canvas);
@@ -324,12 +297,13 @@ function mountRenderer() {
   if (window.ResizeObserver) {
     if (resizeObs) resizeObs.disconnect();
     resizeObs = new ResizeObserver(() => {
+      const nL = treeRoot ? leaves(treeRoot).length : 0;
       canvas.width  = treeCard.clientWidth;
-      canvas.height = treeCard.clientHeight;
+      if (nL) applyCanvasHeight(canvas, nL); else canvas.height = treeCard.clientHeight || 600;
       if (renderer && treeRoot) {
         renderer.render(treeRoot, treeCoords, annotations, {
           ...renderOpts,
-          fontSize: computeFontSize(leaves(treeRoot).length),
+          fontSize: computeFontSize(nL),
         });
       }
     });
@@ -339,19 +313,6 @@ function mountRenderer() {
   if (renderer) renderer.destroy();
   renderer = new TreeRenderer(canvas);
 
-  // Wire click callbacks
-  renderer.onNodeClick = (nodeId, node) => {
-    if (panel) {
-      panel.selectNode(nodeId, node);
-      voptPanel.style.display = "block";
-    }
-  };
-  renderer.onBranchClick = (nodeId, node) => {
-    if (panel) {
-      panel.selectBranch(nodeId, node);
-      voptPanel.style.display = "block";
-    }
-  };
 }
 
 // ── Results panel ────────────────────────────────────────────────────────────
@@ -488,7 +449,6 @@ async function sweepTo(newN) {
     if (sweepChart) sweepChart.addPoint(newN, data.diversity);
 
     // Sync panel if open
-    if (panel) panel.setAnnotations(annotations);
 
   } catch (err) {
     if (err.name !== "AbortError") {
@@ -508,6 +468,12 @@ function openExportDialog() {
   document.querySelectorAll("#exp-theme-group .exp-fmt-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.exptheme === exportTheme);
   });
+  // Pre-fill height from actual canvas so export isn't clipped
+  const cv = document.getElementById("tree-canvas");
+  if (cv) {
+    document.getElementById("exp-width").value  = cv.width  || 1200;
+    document.getElementById("exp-height").value = cv.height || 800;
+  }
   exportDialog.showModal();
 }
 
@@ -523,6 +489,17 @@ function wireExportDialog() {
       const isSvg = exportFormat === "svg" || exportFormat === "nex";
       document.getElementById("exp-dpi-field").style.opacity = isSvg ? "0.4" : "1";
       document.getElementById("exp-dpi").disabled = isSvg;
+      // Lock height field for raster: always use canvas height
+      const hField = document.getElementById("exp-height");
+      const cvEl   = document.getElementById("tree-canvas");
+      if (!isSvg && cvEl) {
+        hField.value    = cvEl.height;
+        hField.readOnly = true;
+        hField.style.opacity = "0.5";
+      } else {
+        hField.readOnly = false;
+        hField.style.opacity = "1";
+      }
     });
   });
 
@@ -536,8 +513,13 @@ function wireExportDialog() {
 
   document.getElementById("exp-download-btn")?.addEventListener("click", async () => {
     if (!treeRoot) return;
+    const cv     = document.getElementById("tree-canvas");
     const width  = Math.max(100, parseInt(document.getElementById("exp-width").value)  || 1200);
-    const height = Math.max(100, parseInt(document.getElementById("exp-height").value) || 800);
+    // Always use actual canvas pixel height for raster exports to avoid clipping
+    const isRaster = exportFormat === "png" || exportFormat === "jpg" || exportFormat === "eps";
+    const height = isRaster
+      ? (cv?.height || Math.max(100, parseInt(document.getElementById("exp-height").value) || 800))
+      : Math.max(100, parseInt(document.getElementById("exp-height").value) || 800);
     const dpi    = Math.max(72,  parseInt(document.getElementById("exp-dpi").value)    || 96);
     const bgColor = exportTheme === "light" ? "#f5f7fa" : "#0d1117";
     const dlBtn = document.getElementById("exp-download-btn");
@@ -550,23 +532,20 @@ function wireExportDialog() {
         downloadText(nexus, "parnas-tree.nex", "text/plain");
 
       } else if (exportFormat === "svg") {
-        const svgStr = renderer.exportSvg();
+        const svgStr = renderer.exportSvgWithTheme(exportTheme !== "light");
         downloadBlob(new Blob([svgStr], { type: "image/svg+xml" }), "parnas-tree.svg");
 
       } else if (exportFormat === "png" || exportFormat === "jpg") {
         const canvasW = Math.round(width  * dpi / 96);
         const canvasH = Math.round(height * dpi / 96);
-        const svgStr  = renderer.exportSvg();
-        const blob    = await svgToRasterBlob(svgStr, canvasW, canvasH, bgColor, exportFormat);
+        const blob = await renderer.exportPngWithTheme(exportTheme !== "light", bgColor, canvasW, canvasH, exportFormat);
         downloadBlob(blob, `parnas-tree.${exportFormat}`);
 
       } else if (exportFormat === "eps") {
         const canvasW = Math.round(width  * dpi / 96);
         const canvasH = Math.round(height * dpi / 96);
-        const svgStr  = renderer.exportSvg();
-        // Convert SVG → canvas → EPS
-        const blob = await svgToRasterBlob(svgStr, canvasW, canvasH, bgColor, "png");
-        const imgBitmap = await createImageBitmap(blob);
+        const pngBlob = await renderer.exportPngWithTheme(exportTheme !== "light", bgColor, canvasW, canvasH, "png");
+        const imgBitmap = await createImageBitmap(pngBlob);
         const off = document.createElement("canvas");
         off.width = canvasW; off.height = canvasH;
         const ctx = off.getContext("2d");
@@ -631,7 +610,6 @@ function loadSession(json) {
 
   annotations = json.annotations ? deserialise(json.annotations) : emptyAnnotations();
 
-  if (panel) panel.setTree(treeRoot, indexByName(treeRoot));
 
   renderOpts = {
     ...renderOpts,
@@ -646,16 +624,17 @@ function loadSession(json) {
 
   computeLayout();
   mountRenderer();
+  const _nL3 = leaves(treeRoot).length;
+  const _c3 = document.getElementById("tree-canvas");
+  if (_c3) applyCanvasHeight(_c3, _nL3);
   renderer.render(treeRoot, treeCoords, annotations, {
     ...renderOpts,
-    fontSize: computeFontSize(leaves(treeRoot).length),
+    fontSize: computeFontSize(_nL3),
   });
 
   hideOverlay();
-  layoutToggle.style.display = "flex";
   zoomControls.style.display = "flex";
   exportBtn.style.display    = "flex";
-  if (voptBtn) voptBtn.style.display = "flex";
 
   if (lastData.mode) showResults(lastData);
 }

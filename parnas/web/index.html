@@ -411,7 +411,7 @@
       display: block; width: 100%; height: 100%;
       border-radius: 10px;
     }
-    #tree-card { overflow: hidden; }
+    #tree-card { overflow: auto; }
 
     /* ── Visual Options drawer ───────────────────────────────── */
     #vopt-panel {
@@ -684,10 +684,6 @@
       <div class="viz-toolbar">
         <span class="viz-title">Phylogenetic Tree</span>
         <span class="viz-spacer"></span>
-        <div class="toggle-group" id="layout-toggle" style="display:none">
-          <button class="toggle-btn active" data-layout="rectangular">Rectangular</button>
-          <button class="toggle-btn" data-layout="radial">Radial</button>
-        </div>
         <div class="toggle-group" id="zoom-controls" style="display:none">
           <button class="toggle-btn" id="zoom-out-btn" aria-label="Zoom out">−</button>
           <button class="toggle-btn" id="zoom-reset-btn" aria-label="Reset zoom">1:1</button>
@@ -701,11 +697,6 @@
           </svg>
           Export
         </button>
-        <button id="vopt-btn" class="toolbar-btn" style="display:none" aria-label="Visual options">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
-          </svg>
-          Annotate
         </button>
       </div>
       <div id="tree-card" style="position:relative">

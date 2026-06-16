@@ -79,6 +79,13 @@ export class TreeRenderer {
     this._redraw();
   }
 
+  /** Notify renderer that canvas dimensions changed. Call before render(). */
+  resize() {
+    const c = this._canvas;
+    this._p.view.viewSize = new this._p.Size(c.width, c.height);
+    this._p.view.update();
+  }
+
   resetView() {
     this._p.view.matrix = new this._p.Matrix();
     this._p.view.update();
@@ -122,6 +129,52 @@ export class TreeRenderer {
     return this._p.project.exportSVG({ asString: true });
   }
 
+  /** Re-render with a specific dark/light theme, export SVG, then restore. */
+  exportSvgWithTheme(dark) {
+    const origDark = this._opts.dark;
+    if (origDark === dark) return this.exportSvg();
+    this._opts = { ...this._opts, dark };
+    this._redraw();
+    const svg = this._p.project.exportSVG({ asString: true });
+    this._opts = { ...this._opts, dark: origDark };
+    this._redraw();
+    return svg;
+  }
+
+  /**
+   * Re-render with export theme, copy canvas pixels to an offscreen canvas
+   * at target dimensions, then restore original theme.
+   * Returns a Promise<Blob>.
+   */
+  exportPngWithTheme(dark, bgColor, targetW, targetH, fmt = "png") {
+    const origDark = this._opts.dark;
+    if (origDark !== dark) {
+      this._opts = { ...this._opts, dark };
+      this._redraw();
+      this._p.view.update();
+    }
+
+    const src = this._canvas;
+    const off = document.createElement("canvas");
+    off.width  = targetW;
+    off.height = targetH;
+    const ctx = off.getContext("2d");
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, targetW, targetH);
+    ctx.drawImage(src, 0, 0, src.width, src.height, 0, 0, targetW, targetH);
+
+    const mime = fmt === "jpg" ? "image/jpeg" : "image/png";
+    return new Promise(resolve => {
+      off.toBlob(blob => {
+        if (origDark !== dark) {
+          this._opts = { ...this._opts, dark: origDark };
+          this._redraw();
+        }
+        resolve(blob);
+      }, mime, 0.95);
+    });
+  }
+
   // ── Internal ────────────────────────────────────────────────────────────
 
   _clearLayers() {
@@ -134,8 +187,8 @@ export class TreeRenderer {
   }
 
   _pad() {
-    const w = this._canvas.offsetWidth  || this._canvas.width  || 800;
-    const h = this._canvas.offsetHeight || this._canvas.height || 600;
+    const w = this._canvas.width  || this._canvas.offsetWidth  || 800;
+    const h = this._canvas.height || this._canvas.offsetHeight || 600;
     const isRadial = this._opts.radial;
 
     if (isRadial) {
@@ -418,15 +471,17 @@ export class TreeRenderer {
     // ── Legend ─────────────────────────────────────────────────
     if (ann.legend?.length) {
       this._layers.overlay.activate();
-      const lx = pad.left + 10;
-      let   ly = pad.top  + 10;
+      // Position at top-right, inside the label margin
+      const legendW = 160;
+      const lx = pad.w - Math.max(pad.right, legendW + 8);
+      let   ly = pad.top + 10;
       ann.legend.forEach(entry => {
         const dot = new p.Path.Circle(new p.Point(lx + 5, ly + 5), 5);
         dot.fillColor = entry.color;
         const tx = new p.PointText(new p.Point(lx + 14, ly + 9));
         tx.content   = entry.label;
         tx.fontSize  = 10;
-        tx.fillColor = textDef;
+        tx.fillColor = entry.color;
         ly += 16;
       });
     }
