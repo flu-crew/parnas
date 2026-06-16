@@ -201,12 +201,20 @@ export class TreeRenderer {
     const nStrips  = this._ann?.metadataStrips?.length || 0;
     const stripW   = nStrips * (STRIP_W + STRIP_GAP);
 
+    // Reserve extra right margin for legend column
+    const legend = this._ann?.legend;
+    const legendColW = legend?.length
+      ? Math.max(...legend.map(e => (e.label || "").length)) * 6 + 64
+      : 0;
+
     return {
       w, h,
       left:   PAD_LEFT,
-      right:  labelW + LABEL_PAD + stripW + 20,
+      right:  labelW + LABEL_PAD + stripW + 20 + legendColW,
       top:    PAD_TOP,
       bottom: PAD_BOTTOM,
+      legendColW,
+      labelW,
     };
   }
 
@@ -469,20 +477,29 @@ export class TreeRenderer {
     }
 
     // ── Legend ─────────────────────────────────────────────────
-    if (ann.legend?.length) {
+    if (ann.legend?.length && pad.legendColW) {
       this._layers.overlay.activate();
-      // Position at top-right, inside the label margin
-      const legendW = 160;
-      const lx = pad.w - Math.max(pad.right, legendW + 8);
+      const ITEM_H  = 16;
+      const FONT_SZ = 10;
+      const DOT_R   = 4;
+      const PADX    = 6;
+
+      // Start of legend column: just after tip labels, with generous gap
+      const lx = pad.w - pad.right + pad.labelW + LABEL_PAD + 40;
       let   ly = pad.top + 10;
+
       ann.legend.forEach(entry => {
-        const dot = new p.Path.Circle(new p.Point(lx + 5, ly + 5), 5);
+        const dot = new p.Path.Circle(
+          new p.Point(lx + DOT_R, ly + ITEM_H / 2), DOT_R
+        );
         dot.fillColor = entry.color;
-        const tx = new p.PointText(new p.Point(lx + 14, ly + 9));
+        const tx = new p.PointText(
+          new p.Point(lx + DOT_R * 2 + PADX, ly + ITEM_H / 2 + FONT_SZ * 0.35)
+        );
         tx.content   = entry.label;
-        tx.fontSize  = 10;
+        tx.fontSize  = FONT_SZ;
         tx.fillColor = entry.color;
-        ly += 16;
+        ly += ITEM_H;
       });
     }
 
