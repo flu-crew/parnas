@@ -495,6 +495,37 @@
     .vopt-divider {
       border-top: 1px solid var(--border); margin: 0.5rem 0;
     }
+
+    /* ── Collapse buttons ────────────────────────────────────── */
+    .section-label {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .collapse-btn {
+      background: none; border: none; cursor: pointer; padding: 0;
+      color: var(--text-muted); font-size: 0.75rem; line-height: 1;
+      flex-shrink: 0; transition: color 0.15s; width: 16px; text-align: center;
+      margin-left: 0.4rem;
+    }
+    .collapse-btn:hover { color: var(--accent); }
+    .collapsible.collapsed { display: none !important; }
+
+    /* ── Sidebar collapse ────────────────────────────────────── */
+    .app-body {
+      transition: grid-template-columns 0.2s ease;
+    }
+    .app-body.sidebar-collapsed {
+      grid-template-columns: 0 1fr;
+    }
+    .app-body.sidebar-collapsed .sidebar {
+      overflow: hidden; padding: 0; border: none; min-width: 0;
+    }
+
+
+    /* ── Tree maximize ───────────────────────────────────────── */
+    #tree-card.maximized {
+      position: fixed; inset: 0; z-index: 200;
+      border-radius: 0; border: none;
+    }
   </style>
 </head>
 <body>
@@ -546,13 +577,15 @@
     <aside class="sidebar">
 
       <!-- Tree upload -->
-      <p class="section-label">Input Tree</p>
+      <p class="section-label">Input Tree <button class="collapse-btn" id="toggle-input" aria-label="Toggle input tree">▾</button></p>
+      <div id="input-fields" class="collapsible">
       <div class="drop-zone" id="drop-zone" role="button" tabindex="0">
         <div class="drop-zone-icon">🌿</div>
         <p class="drop-zone-primary"  id="dz-primary">Click or drag a file here</p>
         <p class="drop-zone-secondary" id="dz-secondary">Newick or Nexus format</p>
       </div>
       <input type="file" id="tree-file" accept=".tre,.nwk,.nex,.nexus,.tree,.txt" style="display:none"/>
+      </div><!-- /#input-fields -->
 
       <!-- Sampling -->
       <p class="section-label">Sampling</p>
@@ -653,8 +686,8 @@
 
       <!-- Results -->
       <div id="results-panel">
-        <p class="section-label">Results</p>
-
+        <p class="section-label">Results <button class="collapse-btn" id="toggle-results" aria-label="Toggle results">▾</button></p>
+        <div id="results-content" class="collapsible">
         <!-- Sample mode results -->
         <div id="sample-results">
           <div id="diversity-pill" class="diversity-pill" style="display:none">
@@ -670,6 +703,7 @@
           <p class="section-label" style="margin-top:0.4rem">Best Representatives</p>
           <ul class="rep-list" id="eval-rep-list"></ul>
         </div>
+        </div><!-- /#results-content -->
       </div>
 
       <!-- Sweep bar (hidden until first sample-mode run) -->
@@ -682,6 +716,10 @@
       </div>
 
       <div class="viz-toolbar">
+        <button id="sidebar-toggle" class="toolbar-btn" aria-label="Toggle sidebar">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          Sidebar
+        </button>
         <span class="viz-title">Phylogenetic Tree</span>
         <span class="viz-spacer"></span>
         <div class="toggle-group" id="zoom-controls" style="display:none">
@@ -689,6 +727,13 @@
           <button class="toggle-btn" id="zoom-reset-btn" aria-label="Reset zoom">1:1</button>
           <button class="toggle-btn" id="zoom-in-btn" aria-label="Zoom in">+</button>
         </div>
+        <button id="maximize-btn" class="toolbar-btn" aria-label="Maximize tree">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+            <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+          </svg>
+          Maximize
+        </button>
         <button id="export-btn" class="toolbar-btn" style="display:none" aria-label="Export tree image">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>

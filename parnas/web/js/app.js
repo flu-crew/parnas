@@ -53,6 +53,7 @@ const stateOverlay = document.getElementById("state-overlay");
 const runBtn       = document.getElementById("run-btn");
 const zoomControls = document.getElementById("zoom-controls");
 const exportBtn    = document.getElementById("export-btn");
+const maximizeBtn  = document.getElementById("maximize-btn");
 const exportDialog = document.getElementById("export-dialog");
 
 // ── Initialise ─────────────────────────────────────────────────────────────
@@ -62,6 +63,48 @@ function init() {
   document.getElementById("zoom-in-btn")?.addEventListener("click",    () => renderer?.zoom(1.25));
   document.getElementById("zoom-out-btn")?.addEventListener("click",   () => renderer?.zoom(1 / 1.25));
   document.getElementById("zoom-reset-btn")?.addEventListener("click", () => renderer?.resetView());
+
+  // Collapse buttons
+  document.getElementById("toggle-input")?.addEventListener("click", () => {
+    const el = document.getElementById("input-fields");
+    const btn = document.getElementById("toggle-input");
+    const collapsed = el.classList.toggle("collapsed");
+    btn.textContent = collapsed ? "▸" : "▾";
+  });
+  document.getElementById("toggle-results")?.addEventListener("click", () => {
+    const el = document.getElementById("results-content");
+    const btn = document.getElementById("toggle-results");
+    const collapsed = el.classList.toggle("collapsed");
+    btn.textContent = collapsed ? "▸" : "▾";
+    if (!collapsed && renderer) setTimeout(() => renderer.resize(), 20);
+  });
+
+  // Sidebar toggle
+  document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
+    const body = document.querySelector(".app-body");
+    const btn  = document.getElementById("sidebar-toggle");
+    const collapsed = body.classList.toggle("sidebar-collapsed");
+    btn.textContent = collapsed ? "▶" : "◀";
+    setTimeout(() => renderer?.resize(), 220);
+  });
+
+  // Tree maximize
+  maximizeBtn?.addEventListener("click", () => {
+    const isMax = treeCard.classList.toggle("maximized");
+    maximizeBtn.querySelector("svg").innerHTML = isMax
+      ? '<polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>'
+      : '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>';
+    maximizeBtn.childNodes[2].textContent = isMax ? " Restore" : " Maximize";
+    setTimeout(() => renderer?.resize(), 20);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && treeCard.classList.contains("maximized")) {
+      treeCard.classList.remove("maximized");
+      maximizeBtn.querySelector("svg").innerHTML = '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>';
+      maximizeBtn.childNodes[2].textContent = " Maximize";
+      setTimeout(() => renderer?.resize(), 20);
+    }
+  });
 
   // Export button opens dialog
   exportBtn?.addEventListener("click", openExportDialog);
