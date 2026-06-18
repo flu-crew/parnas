@@ -13,7 +13,7 @@
 
 import { parseNewick }                        from "./newick.js";
 import { leaves, indexByName }                from "./treemodel.js";
-import { rectangularLayout }                  from "./layout.js";
+import { rectangularLayout, cladogramLayout, radialLayout } from "./layout.js";
 import { TreeRenderer }                       from "./renderer.js";
 import {
   emptyAnnotations, setClusterColors, setLegend, deserialise,
@@ -35,11 +35,17 @@ let lastData    = null;   // full /api/run JSON response
 let treeRoot    = null;   // parsed tree root
 let treeCoords  = null;   // Map<id, {x,y}>
 
-let annotations = emptyAnnotations();
-let renderOpts  = { dark: true, radial: false, fontSize: 11, showSupport: false };
+let annotations      = emptyAnnotations();
+let annotationsPrior = emptyAnnotations();
+let annotationsBest  = emptyAnnotations();
+let renderOpts  = { dark: true, radial: false, layout: "phylogram", fontSize: 11, showSupport: false };
 
 /** @type {TreeRenderer|null} */
 let renderer    = null;
+/** @type {TreeRenderer|null} — evaluate mode left panel (prior reps) */
+let rendererPrior = null;
+/** @type {TreeRenderer|null} — evaluate mode right panel (best reps) */
+let rendererBest  = null;
 /** @type {ResizeObserver|null} */
 let resizeObs   = null;
 /** @type {SweepChart|null} */
@@ -51,9 +57,10 @@ let currentSweepN = 1;
 const treeCard     = document.getElementById("tree-card");
 const stateOverlay = document.getElementById("state-overlay");
 const runBtn       = document.getElementById("run-btn");
-const zoomControls = document.getElementById("zoom-controls");
-const exportBtn    = document.getElementById("export-btn");
-const maximizeBtn  = document.getElementById("maximize-btn");
+const zoomControls  = document.getElementById("zoom-controls");
+const exportBtn     = document.getElementById("export-btn");
+const layoutToggle  = document.getElementById("layout-toggle");
+const maximizeBtn   = document.getElementById("maximize-btn");
 const exportDialog = document.getElementById("export-dialog");
 
 // ── Initialise ─────────────────────────────────────────────────────────────
@@ -64,22 +71,33 @@ function init() {
   document.getElementById("zoom-out-btn")?.addEventListener("click",   () => renderer?.zoom(1 / 1.25));
   document.getElementById("zoom-reset-btn")?.addEventListener("click", () => renderer?.resetView());
 
-  // Collapse buttons
+  // Collapse input section
   document.getElementById("toggle-input")?.addEventListener("click", () => {
     const el = document.getElementById("input-fields");
     const btn = document.getElementById("toggle-input");
     const collapsed = el.classList.toggle("collapsed");
     btn.textContent = collapsed ? "▸" : "▾";
   });
-  document.getElementById("toggle-results")?.addEventListener("click", () => {
-    const el = document.getElementById("results-content");
-    const btn = document.getElementById("toggle-results");
-    const collapsed = el.classList.toggle("collapsed");
-    btn.textContent = collapsed ? "▸" : "▾";
-    if (!collapsed && renderer) setTimeout(() => renderer.resize(), 20);
-  });
 
-  // Sidebar toggle
+  // Sidebar tab switching
+  function activateTab(name) {
+    document.querySelectorAll(".sb-tab").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+    document.querySelectorAll(".sb-panel").forEach(p => p.classList.toggle("active", p.id === "tab-" + name));
+  }
+  document.querySelectorAll(".sb-tab").forEach(btn => {
+    btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+  });
+  window._activateSidebarTab = activateTab;
+
+  // Sidebar collapse (in-panel button)
+  function toggleSidebarCollapse() {
+    const body = document.querySelector(".app-body");
+    const collapsed = body.classList.toggle("sidebar-collapsed");
+    setTimeout(() => renderer?.resize(), 220);
+  }
+  document.getElementById("sidebar-collapse")?.addEventListener("click", toggleSidebarCollapse);
+
+  // Sidebar toggle (toolbar button - reopen)
   document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
     const body = document.querySelector(".app-body");
     const btn  = document.getElementById("sidebar-toggle");
@@ -89,25 +107,69 @@ function init() {
   });
 
   // Tree maximize
+  function resizeAfterMaximize() {
+    if (rendererPrior && rendererBest) {
+      // Dual evaluate view: resize both half-width canvases
+      const halfW = Math.floor(treeCard.clientWidth / 2) || 400;
+      if (treeRoot) {
+        const nL = leaves(treeRoot).length;
+        const h  = canvasHeight(nL);
+        const fs = computeFontSize(nL);
+        ["tree-canvas-prior", "tree-canvas-best"].forEach((id, i) => {
+          const c = document.getElementById(id);
+          if (!c) return;
+          c.width = halfW; c.height = h; c.style.height = h + "px";
+        });
+        rendererPrior.resize();
+        rendererBest.resize();
+        rendererPrior.render(treeRoot, treeCoords, annotationsPrior, { ...renderOpts, fontSize: fs });
+        rendererBest.render(treeRoot, treeCoords, annotationsBest,  { ...renderOpts, fontSize: fs });
+      }
+      return;
+    }
+    const canvas = document.getElementById("tree-canvas");
+    if (!canvas) return;
+    canvas.width = treeCard.clientWidth || canvas.width;
+    if (treeRoot) {
+      const nL = leaves(treeRoot).length;
+      applyCanvasHeight(canvas, nL);
+      renderer?.render(treeRoot, treeCoords, annotations, {
+        ...renderOpts,
+        fontSize: computeFontSize(nL),
+      });
+    } else {
+      canvas.height = treeCard.clientHeight || canvas.height;
+      renderer?.resize();
+    }
+  }
+
   maximizeBtn?.addEventListener("click", () => {
     const isMax = treeCard.classList.toggle("maximized");
     maximizeBtn.querySelector("svg").innerHTML = isMax
       ? '<polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>'
       : '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>';
     maximizeBtn.childNodes[2].textContent = isMax ? " Restore" : " Maximize";
-    setTimeout(() => renderer?.resize(), 20);
+    setTimeout(resizeAfterMaximize, 20);
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && treeCard.classList.contains("maximized")) {
       treeCard.classList.remove("maximized");
       maximizeBtn.querySelector("svg").innerHTML = '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>';
       maximizeBtn.childNodes[2].textContent = " Maximize";
-      setTimeout(() => renderer?.resize(), 20);
+      setTimeout(resizeAfterMaximize, 20);
     }
   });
 
   // Export button opens dialog
   exportBtn?.addEventListener("click", openExportDialog);
+
+  // Layout toggle (Phylogram ⇄ Cladogram)
+  document.getElementById("layout-toggle")?.addEventListener("click", () => {
+    renderOpts.layout = renderOpts.layout === "cladogram" ? "phylogram" : "cladogram";
+    const btn = document.getElementById("layout-toggle");
+    if (btn) btn.textContent = renderOpts.layout === "cladogram" ? "Phylogram" : "Cladogram";
+    rerenderActive();
+  });
 
   // Theme toggle (re-render on switch)
   document.getElementById("theme-toggle")?.addEventListener("click", () => {
@@ -216,7 +278,8 @@ function wireRunButton() {
       showResults(data);
 
       zoomControls.style.display = "flex";
-      exportBtn.style.display    = "flex";
+      exportBtn.style.display    = data.mode === "evaluate" ? "none" : "flex";
+      if (layoutToggle) layoutToggle.style.display = "flex";
 
       // Show sweep bar only for sample mode (not cover, not evaluate)
       const sweepBar = document.getElementById("sweep-bar");
@@ -264,21 +327,67 @@ function loadAndRender(data) {
 
 
   computeLayout();
-  mountRenderer();
-  renderOpts.repsSet   = new Set([
-    ...(data.representatives      || []),
-    ...(data.best_representatives || []),
-    ...(data.prior_centers        || []),
-  ]);
-  renderOpts.repColors = data.colors || {};
-
   const _nL = leaves(treeRoot).length;
-  const _canvas = document.getElementById("tree-canvas");
-  if (_canvas) applyCanvasHeight(_canvas, _nL);
-  renderer.render(treeRoot, treeCoords, annotations, {
-    ...renderOpts,
-    fontSize: computeFontSize(_nL),
-  });
+  const _fs  = computeFontSize(_nL);
+
+  if (data.mode === "evaluate") {
+    // ── Dual split view ───────────────────────────────────────
+    mountDualRenderer();
+
+    const priorReps = data.prior_centers        || [];
+    const bestReps  = data.best_representatives || [];
+
+    annotationsPrior = emptyAnnotations();
+    if (data.colors_prior) annotationsPrior = setClusterColors(annotationsPrior, data.colors_prior);
+    const legendPrior = priorReps
+      .filter(r => data.colors_prior?.[r])
+      .map(r => ({ label: r, color: data.colors_prior[r] }));
+    if (legendPrior.length) annotationsPrior = setLegend(annotationsPrior, legendPrior);
+
+    annotationsBest = emptyAnnotations();
+    if (data.colors_best) annotationsBest = setClusterColors(annotationsBest, data.colors_best);
+    const legendBest = bestReps
+      .filter(r => data.colors_best?.[r])
+      .map(r => ({ label: r, color: data.colors_best[r] }));
+    if (legendBest.length) annotationsBest = setLegend(annotationsBest, legendBest);
+
+    renderOpts.repsSet   = new Set([...priorReps, ...bestReps]);
+    renderOpts.repColors = {};
+
+    const halfW = Math.floor(treeCard.clientWidth / 2) || 400;
+    const hh    = canvasHeight(_nL);
+
+    const cvPrior = document.getElementById("tree-canvas-prior");
+    const cvBest  = document.getElementById("tree-canvas-best");
+    if (cvPrior) { cvPrior.width = halfW; cvPrior.height = hh; cvPrior.style.height = hh + "px"; rendererPrior.resize(); }
+    if (cvBest)  { cvBest.width  = halfW; cvBest.height  = hh; cvBest.style.height  = hh + "px"; rendererBest.resize();  }
+
+    rendererPrior.render(treeRoot, treeCoords, annotationsPrior, { ...renderOpts, fontSize: _fs });
+    rendererBest.render(treeRoot, treeCoords, annotationsBest,   { ...renderOpts, fontSize: _fs });
+
+    // Hide export in evaluate mode (two canvases, not one)
+    if (exportBtn) exportBtn.style.display = "none";
+
+  } else {
+    // ── Single canvas ─────────────────────────────────────────
+    if (rendererPrior) { rendererPrior.destroy(); rendererPrior = null; }
+    if (rendererBest)  { rendererBest.destroy();  rendererBest  = null; }
+    mountRenderer();
+
+    renderOpts.repsSet   = new Set([
+      ...(data.representatives      || []),
+      ...(data.best_representatives || []),
+      ...(data.prior_centers        || []),
+    ]);
+    renderOpts.repColors = data.colors || {};
+
+    const _canvas = document.getElementById("tree-canvas");
+    if (_canvas) applyCanvasHeight(_canvas, _nL);
+    renderer.render(treeRoot, treeCoords, annotations, {
+      ...renderOpts,
+      fontSize: _fs,
+    });
+  }
 
   hideOverlay();
 }
@@ -296,9 +405,29 @@ function recomputeLayout() {
 }
 
 function computeLayout() {
-  treeCoords = renderOpts.radial
-    ? radialLayout(treeRoot)
-    : rectangularLayout(treeRoot);
+  if (renderOpts.radial) {
+    treeCoords = radialLayout(treeRoot);
+  } else if (renderOpts.layout === "cladogram") {
+    treeCoords = cladogramLayout(treeRoot);
+  } else {
+    treeCoords = rectangularLayout(treeRoot);
+  }
+}
+
+/** Re-render whichever view is currently mounted. */
+function rerenderActive() {
+  if (!treeRoot) return;
+  computeLayout();
+  const _nL = leaves(treeRoot).length;
+  const _fs  = computeFontSize(_nL);
+  if (rendererPrior && rendererBest) {
+    rendererPrior.render(treeRoot, treeCoords, annotationsPrior, { ...renderOpts, fontSize: _fs });
+    rendererBest.render(treeRoot,  treeCoords, annotationsBest,  { ...renderOpts, fontSize: _fs });
+  } else if (renderer) {
+    const _c = document.getElementById("tree-canvas");
+    if (_c) applyCanvasHeight(_c, _nL);
+    renderer.render(treeRoot, treeCoords, annotations, { ...renderOpts, fontSize: _fs });
+  }
 }
 
 function computeFontSize(nLeaves) {
@@ -358,11 +487,78 @@ function mountRenderer() {
 
 }
 
+function mountDualRenderer() {
+  treeCard.innerHTML = "";
+  treeCard.appendChild(stateOverlay);
+
+  // Destroy old renderers
+  if (renderer)      { renderer.destroy();      renderer      = null; }
+  if (rendererPrior) { rendererPrior.destroy();  rendererPrior = null; }
+  if (rendererBest)  { rendererBest.destroy();   rendererBest  = null; }
+
+  const halfW = Math.floor(treeCard.clientWidth / 2) || 400;
+  const h     = treeCard.clientHeight || 600;
+
+  const splitView = document.createElement("div");
+  splitView.id = "tree-split-view";
+
+  const makePanel = (id, label) => {
+    const panel = document.createElement("div");
+    panel.className = "tree-panel";
+    const lbl = document.createElement("div");
+    lbl.className = "tree-panel-label";
+    lbl.textContent = label;
+    const cv = document.createElement("canvas");
+    cv.id = id;
+    cv.style.cssText = "display:block;width:100%;";
+    cv.width  = halfW;
+    cv.height = h;
+    panel.appendChild(lbl);
+    panel.appendChild(cv);
+    return { panel, cv };
+  };
+
+  const { panel: panelPrior, cv: cvPrior } = makePanel("tree-canvas-prior", "Prior Representatives");
+  const { panel: panelBest,  cv: cvBest  } = makePanel("tree-canvas-best",  "Best Coverage");
+
+  splitView.appendChild(panelPrior);
+  splitView.appendChild(panelBest);
+  treeCard.appendChild(splitView);
+
+  rendererPrior = new TreeRenderer(cvPrior);
+  rendererBest  = new TreeRenderer(cvBest);
+
+  if (window.ResizeObserver) {
+    if (resizeObs) resizeObs.disconnect();
+    resizeObs = new ResizeObserver(() => {
+      if (!treeRoot) return;
+      const nL  = leaves(treeRoot).length;
+      const w2  = Math.floor(treeCard.clientWidth / 2);
+      const hh  = canvasHeight(nL);
+      const fs  = computeFontSize(nL);
+      [cvPrior, cvBest].forEach(c => { c.width = w2; c.height = hh; c.style.height = hh + "px"; });
+      rendererPrior.resize();
+      rendererBest.resize();
+      rendererPrior.render(treeRoot, treeCoords, annotationsPrior, { ...renderOpts, fontSize: fs });
+      rendererBest.render(treeRoot, treeCoords, annotationsBest,   { ...renderOpts, fontSize: fs });
+    });
+    resizeObs.observe(treeCard);
+  }
+}
+
 // ── Results panel ────────────────────────────────────────────────────────────
 
 function showResults(data) {
-  const resultsPanel = document.getElementById("results-panel");
-  resultsPanel.style.display = "block";
+  // Reveal the Results tab and switch to it
+  const tabBtn = document.getElementById("tab-btn-results");
+  if (tabBtn) tabBtn.style.display = "";
+  if (window._activateSidebarTab) window._activateSidebarTab("results");
+  // Ensure sidebar is open
+  const body = document.querySelector(".app-body");
+  if (body?.classList.contains("sidebar-collapsed")) {
+    body.classList.remove("sidebar-collapsed");
+    setTimeout(() => renderer?.resize(), 220);
+  }
 
   const sampleDiv = document.getElementById("sample-results");
   const evalDiv   = document.getElementById("eval-results");
@@ -411,11 +607,11 @@ function showResults(data) {
 
     const list = document.getElementById("eval-rep-list");
     list.innerHTML = "";
-    const reps = data.best_representatives || data.prior_centers || [];
-    reps.forEach(rep => {
+    const bestReps = data.best_representatives || data.prior_centers || [];
+    bestReps.forEach(rep => {
       const li = document.createElement("li");
       li.className = "rep-item";
-      const color = data.colors?.[rep] || "#888";
+      const color = data.colors_best?.[rep] || data.colors?.[rep] || "#888";
       li.innerHTML = `<span class="rep-dot" style="background:${color};color:${color}"></span>
                       <span>${escapeHtml(rep)}</span>`;
       list.appendChild(li);
@@ -678,6 +874,7 @@ function loadSession(json) {
   hideOverlay();
   zoomControls.style.display = "flex";
   exportBtn.style.display    = "flex";
+  if (layoutToggle) layoutToggle.style.display = "flex";
 
   if (lastData.mode) showResults(lastData);
 }

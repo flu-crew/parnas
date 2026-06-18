@@ -24,7 +24,15 @@ const STRIP_GAP   = 3;   // gap between strips
 const PAD_LEFT    = 40;
 const PAD_TOP     = 20;
 const PAD_BOTTOM  = 20;
-const MAX_LABEL_W = 240; // cap on space reserved for labels
+const MAX_LABEL_W    = 240; // cap on space reserved for labels
+const MIN_EDGE_PX    = 6;   // minimum parent→child horizontal edge length (phylogram)
+const LEGEND_ITEM_H  = 16;
+const LEGEND_DOT_R   = 4;
+const LEGEND_PADX    = 6;
+const LEGEND_GAP_X   = 18; // gap between consecutive legend entries
+const LEGEND_TOP_GAP = 8;  // space above first legend row
+const LEGEND_BOT_GAP = 4;  // space below last legend row
+const MAX_LEGEND_ROWS = 4; // cap band to this many rows
 
 export class TreeRenderer {
   /**
@@ -32,8 +40,9 @@ export class TreeRenderer {
    */
   constructor(canvas) {
     this._canvas = canvas;
-    const p = window.paper;
+    const p = new window.paper.PaperScope();
     p.setup(canvas);
+    p.activate();
     this._p = p;
 
     // Layer stack (back to front)
@@ -81,17 +90,20 @@ export class TreeRenderer {
 
   /** Notify renderer that canvas dimensions changed. Call before render(). */
   resize() {
+    this._p.activate();
     const c = this._canvas;
     this._p.view.viewSize = new this._p.Size(c.width, c.height);
     this._p.view.update();
   }
 
   resetView() {
+    this._p.activate();
     this._p.view.matrix = new this._p.Matrix();
     this._p.view.update();
   }
 
   zoom(factor) {
+    this._p.activate();
     const c = this._p.view.center;
     this._p.view.scale(factor, c);
     this._p.view.update();
@@ -201,19 +213,26 @@ export class TreeRenderer {
     const nStrips  = this._ann?.metadataStrips?.length || 0;
     const stripW   = nStrips * (STRIP_W + STRIP_GAP);
 
-    // Reserve extra right margin for legend column
+    // Compute legend band height (reserved below the tree, not to the right)
     const legend = this._ann?.legend;
-    const legendColW = legend?.length
-      ? Math.max(...legend.map(e => (e.label || "").length)) * 6 + 64
-      : 0;
+    let legendBandH = 0;
+    if (legend?.length) {
+      const innerW    = w - PAD_LEFT - 20;
+      const maxEntryW = Math.max(...legend.map(
+        e => LEGEND_DOT_R * 2 + LEGEND_PADX + (e.label || "").length * 6 + LEGEND_GAP_X
+      ));
+      const perRow    = Math.max(1, Math.floor(innerW / maxEntryW));
+      const rows      = Math.min(Math.ceil(legend.length / perRow), MAX_LEGEND_ROWS);
+      legendBandH     = LEGEND_TOP_GAP + rows * LEGEND_ITEM_H + LEGEND_BOT_GAP;
+    }
 
     return {
       w, h,
       left:   PAD_LEFT,
-      right:  labelW + LABEL_PAD + stripW + 20 + legendColW,
-      top:    PAD_TOP,
+      right:  labelW + LABEL_PAD + stripW + 20,
+      top:    PAD_TOP + legendBandH,
       bottom: PAD_BOTTOM,
-      legendColW,
+      legendBandH,
       labelW,
     };
   }
@@ -266,6 +285,7 @@ export class TreeRenderer {
   _redraw() {
     if (!this._root || !this._coords) return;
 
+    this._p.activate();
     this._clearLayers();
 
     const p       = this._p;
@@ -289,11 +309,42 @@ export class TreeRenderer {
       (ann.cladeGroups || []).filter(g => g.collapsed).map(g => g.nodeId)
     );
 
+    // ── Min-edge clamp (phylogram only) ───────────────────────
+    // Ensures no parent→child horizontal edge is shorter than MIN_EDGE_PX pixels.
+    // Skipped for cladogram (uniform spacing already) and radial (polar coords).
+    let xpos = null;
+    if (!isRadial && opts.layout !== "cladogram") {
+      const usableW = pad.w - pad.left - pad.right;
+      const minNorm = usableW > 0 ? MIN_EDGE_PX / usableW : 0;
+      xpos = new Map();
+      // Preorder DFS: propagate clamped x from root down
+      const clampDfs = (node, rawParentX, clampedParentX) => {
+        const nc = coords.get(node.id);
+        if (!nc) return;
+        const rawX    = nc.x;
+        const rawEdge = rawX - rawParentX;
+        const clamped = clampedParentX + Math.max(rawEdge, minNorm);
+        xpos.set(node.id, clamped);
+        for (const child of node.children) clampDfs(child, rawX, clamped);
+      };
+      const rootNc = coords.get(root.id);
+      if (rootNc) {
+        xpos.set(root.id, rootNc.x);
+        for (const child of root.children) clampDfs(child, rootNc.x, rootNc.x);
+        // Scale down if tree overflows [0,1]
+        const maxClamped = Math.max(...xpos.values());
+        if (maxClamped > 1) {
+          for (const [id, v] of xpos) xpos.set(id, v / maxClamped);
+        }
+      }
+    }
+
     // ── Recursive draw ────────────────────────────────────────
     const drawSubtree = (node, parentPx, parentNc, isSkipped) => {
       const nc = coords.get(node.id);
       if (!nc) return;
-      const px = this._toPx(nc.x, nc.y, pad);
+      const ex = (!isRadial && xpos) ? (xpos.get(node.id) ?? nc.x) : nc.x;
+      const px = this._toPx(ex, nc.y, pad);
 
       // Branch to parent
       if (parentPx) {
@@ -476,31 +527,35 @@ export class TreeRenderer {
       });
     }
 
-    // ── Legend ─────────────────────────────────────────────────
-    if (ann.legend?.length && pad.legendColW) {
+    // ── Legend (top band) ────────────────────────────────────
+    if (ann.legend?.length && pad.legendBandH && !isRadial) {
       this._layers.overlay.activate();
-      const ITEM_H  = 16;
-      const FONT_SZ = 10;
-      const DOT_R   = 4;
-      const PADX    = 6;
+      const FONT_SZ   = 10;
+      const bandTopY  = LEGEND_TOP_GAP;
+      const maxRight  = pad.w - 20;
 
-      // Start of legend column: just after tip labels, with generous gap
-      const lx = pad.w - pad.right + pad.labelW + LABEL_PAD + 40;
-      let   ly = pad.top + 10;
+      let x    = PAD_LEFT;
+      let row  = 0;
 
-      ann.legend.forEach(entry => {
-        const dot = new p.Path.Circle(
-          new p.Point(lx + DOT_R, ly + ITEM_H / 2), DOT_R
-        );
+      for (const entry of ann.legend) {
+        const entryW = LEGEND_DOT_R * 2 + LEGEND_PADX +
+                       (entry.label || "").length * 6 + LEGEND_GAP_X;
+        if (x + entryW > maxRight && x > PAD_LEFT) {
+          x = PAD_LEFT;
+          row++;
+          if (row >= MAX_LEGEND_ROWS) break;
+        }
+        const cy  = bandTopY + row * LEGEND_ITEM_H + LEGEND_ITEM_H / 2;
+        const dot = new p.Path.Circle(new p.Point(x + LEGEND_DOT_R, cy), LEGEND_DOT_R);
         dot.fillColor = entry.color;
-        const tx = new p.PointText(
-          new p.Point(lx + DOT_R * 2 + PADX, ly + ITEM_H / 2 + FONT_SZ * 0.35)
+        const tx  = new p.PointText(
+          new p.Point(x + LEGEND_DOT_R * 2 + LEGEND_PADX, cy + FONT_SZ * 0.35)
         );
         tx.content   = entry.label;
         tx.fontSize  = FONT_SZ;
         tx.fillColor = entry.color;
-        ly += ITEM_H;
-      });
+        x += entryW;
+      }
     }
 
     // ── User shapes ────────────────────────────────────────────
@@ -534,6 +589,7 @@ export class TreeRenderer {
   // ── Interaction ────────────────────────────────────────────────────────
 
   _setupInteraction() {
+    this._p.activate();
     const p      = this._p;
     const canvas = this._canvas;
     let panning  = false;

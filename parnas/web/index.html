@@ -97,9 +97,42 @@
     /* ── Sidebar ─────────────────────────────────────────────── */
     .sidebar {
       background: var(--bg-surface); border-right: 1px solid var(--border);
-      padding: 1.1rem 1.1rem 1.5rem;
-      overflow-y: auto; display: flex; flex-direction: column; gap: 0;
+      padding: 0;
+      overflow: hidden; display: flex; flex-direction: column; gap: 0;
+      transition: opacity 0.2s ease;
     }
+    .app-body.sidebar-collapsed .sidebar { opacity: 0; }
+
+    /* ── Sidebar tabs ──────────────────────────────────────── */
+    .sidebar-tabs {
+      display: flex; align-items: center; gap: 0;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0; padding: 0 0.4rem;
+    }
+    .sb-tab {
+      background: none; border: none; border-bottom: 2px solid transparent;
+      padding: 0.55rem 0.75rem; font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--text-muted); cursor: pointer; margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .sb-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .sb-tab:hover:not(.active) { color: var(--text); }
+    .sb-tab-spacer { flex: 1; }
+    .sb-collapse {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 0.85rem; padding: 0.3rem 0.4rem;
+      line-height: 1; transition: color 0.15s; border-radius: 4px;
+    }
+    .sb-collapse:hover { color: var(--accent); }
+
+    /* ── Sidebar panels ─────────────────────────────────────── */
+    .sb-panel {
+      display: none; flex-direction: column; flex: 1;
+      overflow-y: auto; overflow-x: hidden; min-width: 0;
+      padding: 1.1rem 1.1rem 1.5rem;
+    }
+    .sb-panel.active { display: flex; }
 
     /* Section labels */
     .section-label {
@@ -128,6 +161,7 @@
       font-size: 0.85rem;
       margin-bottom: 0;
       padding: 0.4rem 0.6rem;
+      box-sizing: border-box; width: 100%; max-width: 100%;
     }
     .sidebar input:disabled { opacity: 0.45; }
 
@@ -211,9 +245,6 @@
       letter-spacing: 0.12em; width: 100%; margin-top: 0.8rem;
     }
     #run-btn[aria-busy="true"] { pointer-events: none; }
-
-    /* ── Results panel ───────────────────────────────────────── */
-    #results-panel { display: none; }
 
     #sweep-bar {
       display: flex; align-items: center; gap: 0.5rem;
@@ -325,21 +356,8 @@
     }
     .param-help:hover { background: rgba(0,229,200,0.25); }
 
-    /* ── Results panel (in viz-area) ─────────────────────────── */
-    #results-panel {
-      background: var(--bg-surface); border: 1px solid var(--border);
-      border-radius: 10px; padding: 0.65rem 1rem;
-      flex-shrink: 0; max-height: 190px; overflow-y: auto;
-    }
-    #results-panel .section-label { margin-top: 0.4rem; }
-    #results-panel .section-label:first-child { margin-top: 0; }
-    #results-panel .rep-list { display: flex; flex-wrap: wrap; gap: 0.1rem 1.2rem; }
-    #results-panel .rep-item { border-bottom: none; padding: 0.1rem 0; }
-    #results-panel .stat-grid {
-      flex-direction: row; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.3rem;
-    }
-    #results-panel .stat-item { flex: 1; min-width: 160px; }
-    #results-panel .diversity-pill { margin-bottom: 0.15rem; }
+    /* ── Results panel (in sidebar tab) ──────────────────────── */
+    #results-panel { padding: 0; }
 
     /* ── Export button ────────────────────────────────────────── */
     .toolbar-btn {
@@ -412,6 +430,23 @@
       border-radius: 10px;
     }
     #tree-card { overflow: auto; }
+
+    /* ── Dual-tree split view (evaluate mode) ────────────────── */
+    #tree-split-view {
+      display: flex; width: 100%; min-height: 100%; align-items: stretch;
+    }
+    .tree-panel {
+      flex: 1; min-width: 0; display: flex; flex-direction: column;
+      border-right: 1px solid var(--border);
+    }
+    .tree-panel:last-child { border-right: none; }
+    .tree-panel-label {
+      text-align: center; font-size: 11px; font-weight: 600;
+      color: var(--text-muted); padding: 4px 0; letter-spacing: 0.04em;
+      text-transform: uppercase; background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .tree-panel canvas { display: block; width: 100%; flex: 1; }
 
     /* ── Visual Options drawer ───────────────────────────────── */
     #vopt-panel {
@@ -517,7 +552,7 @@
       grid-template-columns: 0 1fr;
     }
     .app-body.sidebar-collapsed .sidebar {
-      overflow: hidden; padding: 0; border: none; min-width: 0;
+      overflow: hidden; border: none; min-width: 0;
     }
 
 
@@ -575,6 +610,17 @@
 
     <!-- ── Sidebar ──────────────────────────────────────────── -->
     <aside class="sidebar">
+
+      <!-- Tab bar -->
+      <div class="sidebar-tabs">
+        <button class="sb-tab active" id="tab-btn-params" data-tab="params">Parameters</button>
+        <button class="sb-tab" id="tab-btn-results" data-tab="results" style="display:none">Results</button>
+        <span class="sb-tab-spacer"></span>
+        <button class="sb-collapse" id="sidebar-collapse" aria-label="Collapse sidebar">«</button>
+      </div>
+
+      <!-- Parameters panel -->
+      <div id="tab-params" class="sb-panel active">
 
       <!-- Tree upload -->
       <p class="section-label">Input Tree <button class="collapse-btn" id="toggle-input" aria-label="Toggle input tree">▾</button></p>
@@ -678,22 +724,17 @@
       <!-- Run -->
       <button id="run-btn" type="button">Run Analysis</button>
 
+      </div><!-- /#tab-params -->
 
-    </aside>
-
-    <!-- ── Viz area ──────────────────────────────────────────── -->
-    <main class="viz-area">
-
-      <!-- Results -->
-      <div id="results-panel">
-        <p class="section-label">Results <button class="collapse-btn" id="toggle-results" aria-label="Toggle results">▾</button></p>
-        <div id="results-content" class="collapsible">
+      <!-- Results panel (inside sidebar tab) -->
+      <div id="tab-results" class="sb-panel">
+        <div id="results-panel">
         <!-- Sample mode results -->
         <div id="sample-results">
           <div id="diversity-pill" class="diversity-pill" style="display:none">
             Diversity covered:&nbsp;<strong id="diversity-val">—</strong>
           </div>
-          <p class="section-label" id="rep-label" style="margin-top:0.4rem">Representatives</p>
+          <p class="section-label" id="rep-label">Representatives</p>
           <ul class="rep-list" id="rep-list"></ul>
         </div>
 
@@ -703,8 +744,13 @@
           <p class="section-label" style="margin-top:0.4rem">Best Representatives</p>
           <ul class="rep-list" id="eval-rep-list"></ul>
         </div>
-        </div><!-- /#results-content -->
-      </div>
+        </div><!-- /#results-panel -->
+      </div><!-- /#tab-results -->
+
+    </aside>
+
+    <!-- ── Viz area ──────────────────────────────────────────── -->
+    <main class="viz-area">
 
       <!-- Sweep bar (hidden until first sample-mode run) -->
       <div id="sweep-bar" style="display:none">
@@ -722,6 +768,7 @@
         </button>
         <span class="viz-title">Phylogenetic Tree</span>
         <span class="viz-spacer"></span>
+        <button id="layout-toggle" class="toolbar-btn" style="display:none" aria-label="Toggle layout mode">Cladogram</button>
         <div class="toggle-group" id="zoom-controls" style="display:none">
           <button class="toggle-btn" id="zoom-out-btn" aria-label="Zoom out">−</button>
           <button class="toggle-btn" id="zoom-reset-btn" aria-label="Reset zoom">1:1</button>

@@ -319,16 +319,27 @@ def run_parnas():
                 rnd_scores.append(get_centers_score(query_tree, taxa_labels[:n_eval], dist_fns))
             percentile = 100 - percentileofscore(sorted(rnd_scores), prior_score, kind="strict")
 
+            # Color map for the "prior" tree panel
+            color_by_clusters(
+                query_tree, prior_centers, prior_centers=[],
+                fully_excluded=fully_excluded, radius=radius,
+            )
+            colors_prior = _build_colors(query_tree, prior_centers, [])
+
+            # Color map for the "best" tree panel
             color_by_clusters(
                 query_tree, reps, prior_centers=prior_centers,
                 fully_excluded=fully_excluded, radius=radius,
             )
+            colors_best = _build_colors(query_tree, reps, [])
+
             return jsonify({
                 "mode":                  "evaluate",
                 "tree":                  _newick(query_tree),
                 "prior_centers":         prior_centers,
                 "best_representatives":  reps,
-                "colors":                _build_colors(query_tree, reps, prior_centers),
+                "colors_prior":          colors_prior,
+                "colors_best":           colors_best,
                 "prior_diversity":       round(prior_diversity, 2) if prior_diversity is not None else None,
                 "best_diversity":        round(best_diversity,  2) if best_diversity  is not None else None,
                 "percentile":            round(percentile, 1),
