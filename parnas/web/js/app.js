@@ -25,6 +25,12 @@ import {
 }                                             from "./export.js";
 import { SweepChart }                        from "./sweep.js";
 
+// ── Utilities ──────────────────────────────────────────────────────────────
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
 let treeFile    = null;
 let weightsFile = null;
@@ -71,12 +77,14 @@ function init() {
   document.getElementById("zoom-out-btn")?.addEventListener("click",   () => renderer?.zoom(1 / 1.25));
   document.getElementById("zoom-reset-btn")?.addEventListener("click", () => renderer?.resetView());
 
-  // Collapse input section
-  document.getElementById("toggle-input")?.addEventListener("click", () => {
-    const el = document.getElementById("input-fields");
-    const btn = document.getElementById("toggle-input");
-    const collapsed = el.classList.toggle("collapsed");
-    btn.textContent = collapsed ? "▸" : "▾";
+  // Generic section collapse buttons (data-target → id of collapsible div)
+  document.querySelectorAll(".collapse-btn[data-target]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const el = document.getElementById(btn.dataset.target);
+      if (!el) return;
+      const collapsed = el.classList.toggle("collapsed");
+      btn.textContent = collapsed ? "▸" : "▾";
+    });
   });
 
   // Sidebar tab switching
@@ -468,7 +476,7 @@ function mountRenderer() {
   // Resize observer
   if (window.ResizeObserver) {
     if (resizeObs) resizeObs.disconnect();
-    resizeObs = new ResizeObserver(() => {
+    resizeObs = new ResizeObserver(debounce(() => {
       const nL = treeRoot ? leaves(treeRoot).length : 0;
       canvas.width  = treeCard.clientWidth;
       if (nL) applyCanvasHeight(canvas, nL); else canvas.height = treeCard.clientHeight || 600;
@@ -478,7 +486,7 @@ function mountRenderer() {
           fontSize: computeFontSize(nL),
         });
       }
-    });
+    }, 140));
     resizeObs.observe(treeCard);
   }
 
@@ -530,7 +538,7 @@ function mountDualRenderer() {
 
   if (window.ResizeObserver) {
     if (resizeObs) resizeObs.disconnect();
-    resizeObs = new ResizeObserver(() => {
+    resizeObs = new ResizeObserver(debounce(() => {
       if (!treeRoot) return;
       const nL  = leaves(treeRoot).length;
       const w2  = Math.floor(treeCard.clientWidth / 2);
@@ -541,7 +549,7 @@ function mountDualRenderer() {
       rendererBest.resize();
       rendererPrior.render(treeRoot, treeCoords, annotationsPrior, { ...renderOpts, fontSize: fs });
       rendererBest.render(treeRoot, treeCoords, annotationsBest,   { ...renderOpts, fontSize: fs });
-    });
+    }, 140));
     resizeObs.observe(treeCard);
   }
 }

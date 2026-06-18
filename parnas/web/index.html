@@ -210,24 +210,6 @@
     .compact-file-name.empty { color: var(--text-muted); opacity: 1; }
 
     /* ── Collapsible sections ────────────────────────────────── */
-    details.field-group {
-      border-top: 1px solid var(--border);
-      margin-top: 0.6rem;
-    }
-    details.field-group > summary {
-      font-size: 0.63rem; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.15em; color: var(--text-muted);
-      cursor: pointer; padding: 0.55rem 0;
-      list-style: none; display: flex; align-items: center;
-      user-select: none;
-    }
-    details.field-group > summary::-webkit-details-marker { display: none; }
-    details.field-group > summary::after {
-      content: "▾"; margin-left: auto; font-size: 0.8rem;
-      transition: transform 0.18s;
-    }
-    details.field-group[open] > summary::after { transform: rotate(-180deg); }
-    .group-body { padding-bottom: 0.5rem; }
 
     /* Radio group inside details */
     .radio-row {
@@ -428,6 +410,7 @@
     #tree-canvas {
       display: block; width: 100%; height: 100%;
       border-radius: 10px;
+      will-change: transform; transform: translateZ(0);
     }
     #tree-card { overflow: auto; }
 
@@ -542,7 +525,13 @@
       margin-left: 0.4rem;
     }
     .collapse-btn:hover { color: var(--accent); }
-    .collapsible.collapsed { display: none !important; }
+    .collapsible {
+      overflow: hidden;
+      max-height: 80rem;
+      opacity: 1;
+      transition: max-height 0.28s ease, opacity 0.18s ease;
+    }
+    .collapsible.collapsed { max-height: 0; opacity: 0; }
 
     /* ── Sidebar collapse ────────────────────────────────────── */
     .app-body {
@@ -623,7 +612,7 @@
       <div id="tab-params" class="sb-panel active">
 
       <!-- Tree upload -->
-      <p class="section-label">Input Tree <button class="collapse-btn" id="toggle-input" aria-label="Toggle input tree">▾</button></p>
+      <p class="section-label">Input Tree <button class="collapse-btn" id="toggle-input" data-target="input-fields" aria-label="Toggle input tree">▾</button></p>
       <div id="input-fields" class="collapsible">
       <div class="drop-zone" id="drop-zone" role="button" tabindex="0">
         <div class="drop-zone-icon">🌿</div>
@@ -634,7 +623,8 @@
       </div><!-- /#input-fields -->
 
       <!-- Sampling -->
-      <p class="section-label">Sampling</p>
+      <p class="section-label">Sampling <button class="collapse-btn" data-target="sampling-fields" aria-label="Toggle sampling">▾</button></p>
+      <div id="sampling-fields" class="collapsible">
 
       <div id="n-row">
         <label class="field-label" for="n-input">Representatives (n) <a class="param-help" href="https://github.com/flu-crew/parnas#selecting-best-representatives" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
@@ -658,8 +648,11 @@
         <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation" onclick="event.stopPropagation()">?</a>
       </label>
 
+      </div><!-- /#sampling-fields -->
+
       <!-- Prior representatives -->
-      <p class="section-label">Prior Representatives</p>
+      <p class="section-label">Prior Representatives <button class="collapse-btn" data-target="prior-fields" aria-label="Toggle prior representatives">▾</button></p>
+      <div id="prior-fields" class="collapsible">
       <label class="field-label" for="prior-input">Regex pattern <a class="param-help" href="https://github.com/flu-crew/parnas#using-prior-representatives" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
       <input type="text" id="prior-input" placeholder="e.g. Vaccine.*" data-tooltip="Regular expression matching taxa to treat as pre-existing representatives" data-placement="top"/>
 
@@ -668,58 +661,53 @@
         <span>Evaluate prior <small>don't sample new</small></span>
         <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation" onclick="event.stopPropagation()">?</a>
       </label>
+      </div><!-- /#prior-fields -->
 
       <!-- Exclusions -->
-      <details class="field-group">
-        <summary>Exclusions</summary>
-        <div class="group-body">
-          <label class="field-label" for="exc-rep">Exclude from selection <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
-          <input type="text" id="exc-rep" placeholder="e.g. Reference.*" data-tooltip="Cannot be chosen as a representative but still counts toward the objective" data-placement="top"/>
-          <label class="field-label" for="exc-obj">Exclude from objective <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
-          <input type="text" id="exc-obj" placeholder="e.g. Outgroup.*" data-tooltip="Can be selected as a representative but does not count toward the objective" data-placement="top"/>
-          <label class="field-label" for="exc-full">Fully exclude <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
-          <input type="text" id="exc-full" placeholder="e.g. Duplicate.*" data-tooltip="Matching taxa are completely ignored by PARNAS" data-placement="top"/>
-          <label class="field-label" for="constrain">Constrain to <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
-          <input type="text" id="constrain" placeholder="e.g. Clade_A.*" data-tooltip="Restrict representative selection to only taxa matching this regex" data-placement="top"/>
-        </div>
-      </details>
+      <p class="section-label">Exclusions <button class="collapse-btn" data-target="exc-fields" aria-label="Toggle exclusions">▸</button></p>
+      <div id="exc-fields" class="collapsible collapsed">
+        <label class="field-label" for="exc-rep">Exclude from selection <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
+        <input type="text" id="exc-rep" placeholder="e.g. Reference.*" data-tooltip="Cannot be chosen as a representative but still counts toward the objective" data-placement="top"/>
+        <label class="field-label" for="exc-obj">Exclude from objective <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
+        <input type="text" id="exc-obj" placeholder="e.g. Outgroup.*" data-tooltip="Can be selected as a representative but does not count toward the objective" data-placement="top"/>
+        <label class="field-label" for="exc-full">Fully exclude <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
+        <input type="text" id="exc-full" placeholder="e.g. Duplicate.*" data-tooltip="Matching taxa are completely ignored by PARNAS" data-placement="top"/>
+        <label class="field-label" for="constrain">Constrain to <small>regex</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
+        <input type="text" id="constrain" placeholder="e.g. Clade_A.*" data-tooltip="Restrict representative selection to only taxa matching this regex" data-placement="top"/>
+      </div><!-- /#exc-fields -->
 
       <!-- Weights -->
-      <details class="field-group">
-        <summary>Weights</summary>
-        <div class="group-body">
-          <label class="field-label">CSV file <small>taxon, weight columns</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
-          <div class="compact-file">
-            <button type="button" class="compact-file-btn" id="weights-btn">Choose CSV</button>
-            <span class="compact-file-name empty" id="weights-name">No file selected</span>
-          </div>
-          <input type="file" id="weights-file" accept=".csv" style="display:none"/>
+      <p class="section-label">Weights <button class="collapse-btn" data-target="weights-fields" aria-label="Toggle weights">▸</button></p>
+      <div id="weights-fields" class="collapsible collapsed">
+        <label class="field-label">CSV file <small>taxon, weight columns</small> <a class="param-help" href="https://github.com/flu-crew/parnas#parnas-usage" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
+        <div class="compact-file">
+          <button type="button" class="compact-file-btn" id="weights-btn">Choose CSV</button>
+          <span class="compact-file-name empty" id="weights-name">No file selected</span>
         </div>
-      </details>
+        <input type="file" id="weights-file" accept=".csv" style="display:none"/>
+      </div><!-- /#weights-fields -->
 
       <!-- Sequence divergence -->
-      <details class="field-group">
-        <summary>Sequence Divergence</summary>
-        <div class="group-body">
-          <label class="field-label" for="threshold-input">
-            Similarity threshold <small>% (0–100)</small> <a class="param-help" href="https://github.com/flu-crew/parnas#specifying-a-coverage-radius" target="_blank" rel="noopener" aria-label="Documentation">?</a>
-          </label>
-          <input type="number" id="threshold-input" step="0.1" min="0.1" max="99.9" placeholder="e.g. 95" data-tooltip="Sequence similarity threshold (0–100) used to re-scale tree edges based on substitutions; substitute for Radius" data-placement="top"/>
-          <div id="alignment-section" style="display:none">
-            <label class="field-label">Sequence type</label>
-            <div class="radio-row">
-              <label><input type="radio" name="aln-type" value="nt" checked/> Nucleotide</label>
-              <label><input type="radio" name="aln-type" value="aa"/> Amino acid</label>
-            </div>
-            <label class="field-label">Alignment file <small>FASTA</small></label>
-            <div class="compact-file">
-              <button type="button" class="compact-file-btn" id="aln-btn">Choose FASTA</button>
-              <span class="compact-file-name empty" id="aln-name">No file selected</span>
-            </div>
-            <input type="file" id="aln-file" accept=".fasta,.fa,.fna,.faa,.aln" style="display:none"/>
+      <p class="section-label">Sequence Divergence <button class="collapse-btn" data-target="seqdiv-fields" aria-label="Toggle sequence divergence">▸</button></p>
+      <div id="seqdiv-fields" class="collapsible collapsed">
+        <label class="field-label" for="threshold-input">
+          Similarity threshold <small>% (0–100)</small> <a class="param-help" href="https://github.com/flu-crew/parnas#specifying-a-coverage-radius" target="_blank" rel="noopener" aria-label="Documentation">?</a>
+        </label>
+        <input type="number" id="threshold-input" step="0.1" min="0.1" max="99.9" placeholder="e.g. 95" data-tooltip="Sequence similarity threshold (0–100) used to re-scale tree edges based on substitutions; substitute for Radius" data-placement="top"/>
+        <div id="alignment-section" style="display:none">
+          <label class="field-label">Sequence type</label>
+          <div class="radio-row">
+            <label><input type="radio" name="aln-type" value="nt" checked/> Nucleotide</label>
+            <label><input type="radio" name="aln-type" value="aa"/> Amino acid</label>
           </div>
+          <label class="field-label">Alignment file <small>FASTA</small></label>
+          <div class="compact-file">
+            <button type="button" class="compact-file-btn" id="aln-btn">Choose FASTA</button>
+            <span class="compact-file-name empty" id="aln-name">No file selected</span>
+          </div>
+          <input type="file" id="aln-file" accept=".fasta,.fa,.fna,.faa,.aln" style="display:none"/>
         </div>
-      </details>
+      </div><!-- /#seqdiv-fields -->
 
       <!-- Run -->
       <button id="run-btn" type="button">Run Analysis</button>
