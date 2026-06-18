@@ -411,6 +411,22 @@ def run_parnas():
                 pass
 
 
+def _warm_up_solver() -> None:
+    """Trigger numba JIT compile on a tiny tree so the first real query is fast."""
+    try:
+        from dendropy import Tree
+        t = Tree.get(data="(((a:2,b:1):2,e:1):1,(c:1,d:2):1);",
+                     schema="newick", preserve_underscores=True)
+        binarize_tree(t, edge_length=0)
+        dfns = build_distance_functions(t)
+        costs = get_costs(t, [], [])
+        find_n_medoids_with_diversity(t, 2, dfns, costs, max_dist=None)
+    except Exception:
+        pass  # warm-up is best-effort; never block serving
+
+
 def run_server(host: str = "localhost", port: int = 8080) -> None:
+    import threading
+    threading.Thread(target=_warm_up_solver, daemon=True).start()
     print(f"\n  PARNAS web server  →  http://{host}:{port}\n")
     app.run(host=host, port=port, debug=False)
