@@ -68,7 +68,27 @@ export class TreeRenderer {
     this.onNodeClick   = null; // (nodeId, node, event) => void
     this.onBranchClick = null; // (nodeId, node, event) => void
 
+    // Smooth zoom: CSS scale accumulates during gesture, committed (paper re-raster) after settle
+    this._cssScale    = 1;
+    this._zoomOriginP = null; // project-space anchor for commit
+    this._commitZoom  = this._debounce(() => {
+      if (this._cssScale === 1) return;
+      this._p.activate();
+      const anchor = this._zoomOriginP || this._p.view.center;
+      this._p.view.scale(this._cssScale, anchor);
+      this._cssScale    = 1;
+      this._zoomOriginP = null;
+      this._canvas.style.transformOrigin = "center center";
+      this._canvas.style.transform       = "translateZ(0)";
+      this._p.view.update();
+    }, 120);
+
     this._setupInteraction();
+  }
+
+  _debounce(fn, ms) {
+    let t;
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
   }
 
   // ── Public API ─────────────────────────────────────────────────────────
@@ -98,15 +118,21 @@ export class TreeRenderer {
 
   resetView() {
     this._p.activate();
+    // Cancel any pending CSS-scale gesture
+    this._cssScale    = 1;
+    this._zoomOriginP = null;
+    this._canvas.style.transformOrigin = "center center";
+    this._canvas.style.transform       = "translateZ(0)";
     this._p.view.matrix = new this._p.Matrix();
     this._p.view.update();
   }
 
   zoom(factor) {
-    this._p.activate();
-    const c = this._p.view.center;
-    this._p.view.scale(factor, c);
-    this._p.view.update();
+    // Accumulate CSS scale (cheap, GPU-composited) then commit to paper once settled
+    this._cssScale *= factor;
+    this._canvas.style.transformOrigin = "center center";
+    this._canvas.style.transform = `translateZ(0) scale(${this._cssScale})`;
+    this._commitZoom();
   }
 
   fitLabels() {
@@ -625,9 +651,13 @@ export class TreeRenderer {
       if (!e.ctrlKey) return;
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-      const mouse  = p.view.viewToProject(new p.Point(e.offsetX, e.offsetY));
-      p.view.scale(factor, mouse);
-      p.view.update();
+      // Remember pointer as project-space anchor for the commit step
+      this._zoomOriginP = p.view.viewToProject(new p.Point(e.offsetX, e.offsetY));
+      // Accumulate CSS scale relative to pointer position (cheap GPU composite)
+      this._cssScale *= factor;
+      canvas.style.transformOrigin = `${e.offsetX}px ${e.offsetY}px`;
+      canvas.style.transform = `translateZ(0) scale(${this._cssScale})`;
+      this._commitZoom();
     }, { passive: false });
   }
 

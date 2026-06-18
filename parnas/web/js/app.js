@@ -66,7 +66,6 @@ const runBtn       = document.getElementById("run-btn");
 const zoomControls  = document.getElementById("zoom-controls");
 const exportBtn     = document.getElementById("export-btn");
 const layoutToggle  = document.getElementById("layout-toggle");
-const maximizeBtn   = document.getElementById("maximize-btn");
 const exportDialog = document.getElementById("export-dialog");
 
 // ── Initialise ─────────────────────────────────────────────────────────────
@@ -97,14 +96,6 @@ function init() {
   });
   window._activateSidebarTab = activateTab;
 
-  // Sidebar collapse (in-panel button)
-  function toggleSidebarCollapse() {
-    const body = document.querySelector(".app-body");
-    const collapsed = body.classList.toggle("sidebar-collapsed");
-    setTimeout(() => renderer?.resize(), 220);
-  }
-  document.getElementById("sidebar-collapse")?.addEventListener("click", toggleSidebarCollapse);
-
   // Sidebar toggle (toolbar button - reopen)
   document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
     const body = document.querySelector(".app-body");
@@ -112,60 +103,6 @@ function init() {
     const collapsed = body.classList.toggle("sidebar-collapsed");
     btn.textContent = collapsed ? "▶" : "◀";
     setTimeout(() => renderer?.resize(), 220);
-  });
-
-  // Tree maximize
-  function resizeAfterMaximize() {
-    if (rendererPrior && rendererBest) {
-      // Dual evaluate view: resize both half-width canvases
-      const halfW = Math.floor(treeCard.clientWidth / 2) || 400;
-      if (treeRoot) {
-        const nL = leaves(treeRoot).length;
-        const h  = canvasHeight(nL);
-        const fs = computeFontSize(nL);
-        ["tree-canvas-prior", "tree-canvas-best"].forEach((id, i) => {
-          const c = document.getElementById(id);
-          if (!c) return;
-          c.width = halfW; c.height = h; c.style.height = h + "px";
-        });
-        rendererPrior.resize();
-        rendererBest.resize();
-        rendererPrior.render(treeRoot, treeCoords, annotationsPrior, { ...renderOpts, fontSize: fs });
-        rendererBest.render(treeRoot, treeCoords, annotationsBest,  { ...renderOpts, fontSize: fs });
-      }
-      return;
-    }
-    const canvas = document.getElementById("tree-canvas");
-    if (!canvas) return;
-    canvas.width = treeCard.clientWidth || canvas.width;
-    if (treeRoot) {
-      const nL = leaves(treeRoot).length;
-      applyCanvasHeight(canvas, nL);
-      renderer?.render(treeRoot, treeCoords, annotations, {
-        ...renderOpts,
-        fontSize: computeFontSize(nL),
-      });
-    } else {
-      canvas.height = treeCard.clientHeight || canvas.height;
-      renderer?.resize();
-    }
-  }
-
-  maximizeBtn?.addEventListener("click", () => {
-    const isMax = treeCard.classList.toggle("maximized");
-    maximizeBtn.querySelector("svg").innerHTML = isMax
-      ? '<polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>'
-      : '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>';
-    maximizeBtn.childNodes[2].textContent = isMax ? " Restore" : " Maximize";
-    setTimeout(resizeAfterMaximize, 20);
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && treeCard.classList.contains("maximized")) {
-      treeCard.classList.remove("maximized");
-      maximizeBtn.querySelector("svg").innerHTML = '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>';
-      maximizeBtn.childNodes[2].textContent = " Maximize";
-      setTimeout(resizeAfterMaximize, 20);
-    }
   });
 
   // Export button opens dialog
