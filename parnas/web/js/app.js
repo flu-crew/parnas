@@ -16,7 +16,7 @@ import { leaves, indexByName }                from "./treemodel.js";
 import { rectangularLayout, cladogramLayout, radialLayout } from "./layout.js";
 import { TreeRenderer }                       from "./renderer.js";
 import {
-  emptyAnnotations, setClusterColors, setLegend, deserialise,
+  emptyAnnotations, setClusterColors, setLegend, setLegendCaption, deserialise,
 }                                             from "./annotations.js";
 import {
   buildAnnotatedNexus, buildSessionJson,
@@ -63,7 +63,6 @@ let currentSweepN = 1;
 const treeCard     = document.getElementById("tree-card");
 const stateOverlay = document.getElementById("state-overlay");
 const runBtn       = document.getElementById("run-btn");
-const zoomControls  = document.getElementById("zoom-controls");
 const exportBtn     = document.getElementById("export-btn");
 const layoutToggle  = document.getElementById("layout-toggle");
 const exportDialog = document.getElementById("export-dialog");
@@ -71,11 +70,6 @@ const exportDialog = document.getElementById("export-dialog");
 // ── Initialise ─────────────────────────────────────────────────────────────
 
 function init() {
-  // Zoom buttons
-  document.getElementById("zoom-in-btn")?.addEventListener("click",    () => renderer?.zoom(1.25));
-  document.getElementById("zoom-out-btn")?.addEventListener("click",   () => renderer?.zoom(1 / 1.25));
-  document.getElementById("zoom-reset-btn")?.addEventListener("click", () => renderer?.resetView());
-
   // Generic section collapse buttons (data-target → id of collapsible div)
   document.querySelectorAll(".collapse-btn[data-target]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -106,7 +100,10 @@ function init() {
   });
 
   // Export button opens dialog
-  exportBtn?.addEventListener("click", openExportDialog);
+  exportBtn?.addEventListener("click", () => {
+    if (rendererPrior && rendererBest) exportEvaluateImage();
+    else openExportDialog();
+  });
 
   // Layout toggle (Phylogram ⇄ Cladogram)
   document.getElementById("layout-toggle")?.addEventListener("click", () => {
@@ -222,25 +219,26 @@ function wireRunButton() {
       loadAndRender(data);
       showResults(data);
 
-      zoomControls.style.display = "flex";
-      exportBtn.style.display    = data.mode === "evaluate" ? "none" : "flex";
+      exportBtn.style.display = "flex";
       if (layoutToggle) layoutToggle.style.display = "flex";
 
-      // Show sweep bar only for sample mode (not cover, not evaluate)
-      const sweepBar = document.getElementById("sweep-bar");
-      if (sweepBar) {
-        const showSweep = data.mode === "sample" && !cover;
-        sweepBar.style.display = showSweep ? "flex" : "none";
-        if (showSweep) {
-          currentSweepN = n || 1;
-          document.getElementById("sweep-n-val").textContent = currentSweepN;
-          const divText = data.diversity != null ? data.diversity.toFixed(2) + "% diversity" : "";
-          document.getElementById("sweep-diversity-display").textContent = divText;
-          if (sweepChart) {
-            sweepChart.reset();
-            sweepChart.addPoint(currentSweepN, data.diversity);
-          }
+      // Sweep tab: show only for non-cover sample mode
+      const sweepTabBtn = document.getElementById("tab-btn-sweep");
+      const showSweep = data.mode === "sample" && !cover;
+      if (sweepTabBtn) sweepTabBtn.style.display = showSweep ? "" : "none";
+      if (showSweep) {
+        currentSweepN = n || 1;
+        document.getElementById("sweep-n-val").textContent = currentSweepN;
+        const divText = data.diversity != null ? data.diversity.toFixed(2) + "% diversity" : "";
+        document.getElementById("sweep-diversity-display").textContent = divText;
+        if (sweepChart) {
+          sweepChart.reset();
+          sweepChart.addPoint(currentSweepN, data.diversity);
         }
+      } else if (sweepTabBtn && window._activateSidebarTab) {
+        // If sweep was active tab, switch to results
+        const sweepPanel = document.getElementById("tab-sweep");
+        if (sweepPanel?.classList.contains("active")) window._activateSidebarTab("results");
       }
 
     } catch (err) {
@@ -288,6 +286,8 @@ function loadAndRender(data) {
       .filter(r => data.colors_prior?.[r])
       .map(r => ({ label: r, color: data.colors_prior[r] }));
     if (legendPrior.length) annotationsPrior = setLegend(annotationsPrior, legendPrior);
+    if (data.prior_diversity != null)
+      annotationsPrior = setLegendCaption(annotationsPrior, "Prior diversity: " + data.prior_diversity + "%");
 
     annotationsBest = emptyAnnotations();
     if (data.colors_best) annotationsBest = setClusterColors(annotationsBest, data.colors_best);
@@ -295,6 +295,8 @@ function loadAndRender(data) {
       .filter(r => data.colors_best?.[r])
       .map(r => ({ label: r, color: data.colors_best[r] }));
     if (legendBest.length) annotationsBest = setLegend(annotationsBest, legendBest);
+    if (data.best_diversity != null)
+      annotationsBest = setLegendCaption(annotationsBest, "Best possible: " + data.best_diversity + "%");
 
     renderOpts.repsSet   = new Set([...priorReps, ...bestReps]);
     renderOpts.repColors = {};
@@ -309,9 +311,6 @@ function loadAndRender(data) {
 
     rendererPrior.render(treeRoot, treeCoords, annotationsPrior, { ...renderOpts, fontSize: _fs });
     rendererBest.render(treeRoot, treeCoords, annotationsBest,   { ...renderOpts, fontSize: _fs });
-
-    // Hide export in evaluate mode (two canvases, not one)
-    if (exportBtn) exportBtn.style.display = "none";
 
   } else {
     // ── Single canvas ─────────────────────────────────────────
@@ -647,6 +646,42 @@ async function sweepTo(newN) {
 let exportFormat = "svg";
 let exportTheme  = "dark";
 
+function exportEvaluateImage() {
+  const cvPrior = document.getElementById("tree-canvas-prior");
+  const cvBest  = document.getElementById("tree-canvas-best");
+  if (!cvPrior || !cvBest) return;
+
+  const dark   = document.documentElement.getAttribute("data-theme") !== "light";
+  const bgColor = dark ? "#0d1117" : "#f5f7fa";
+  const textColor = dark ? "#e6edf3" : "#24292f";
+  const GAP     = 12;
+  const LABEL_H = 22;
+  const FONT    = "bold 11px 'Outfit', sans-serif";
+
+  const w = cvPrior.width + GAP + cvBest.width;
+  const h = LABEL_H + Math.max(cvPrior.height, cvBest.height);
+
+  const off = document.createElement("canvas");
+  off.width = w; off.height = h;
+  const ctx = off.getContext("2d");
+
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.fillStyle = textColor;
+  ctx.font = FONT;
+  ctx.textAlign = "center";
+  ctx.fillText("Prior Representatives", cvPrior.width / 2, 14);
+  ctx.fillText("Best Coverage", cvPrior.width + GAP + cvBest.width / 2, 14);
+
+  ctx.drawImage(cvPrior, 0, LABEL_H);
+  ctx.drawImage(cvBest,  cvPrior.width + GAP, LABEL_H);
+
+  off.toBlob(blob => {
+    if (blob) downloadBlob(blob, "parnas-evaluate.png");
+  }, "image/png");
+}
+
 function openExportDialog() {
   exportTheme = document.documentElement.getAttribute("data-theme") || "dark";
   document.querySelectorAll("#exp-theme-group .exp-fmt-btn").forEach(b => {
@@ -817,8 +852,7 @@ function loadSession(json) {
   });
 
   hideOverlay();
-  zoomControls.style.display = "flex";
-  exportBtn.style.display    = "flex";
+  exportBtn.style.display = "flex";
   if (layoutToggle) layoutToggle.style.display = "flex";
 
   if (lastData.mode) showResults(lastData);

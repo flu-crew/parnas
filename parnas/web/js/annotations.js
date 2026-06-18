@@ -100,6 +100,10 @@ export function setLegend(ann, legend) {
   return { ...ann, legend };
 }
 
+export function setLegendCaption(ann, legendCaption) {
+  return { ...ann, legendCaption };
+}
+
 /**
  * Serialise annotations to a plain JSON-safe object.
  * Maps become arrays of [k, v] pairs.

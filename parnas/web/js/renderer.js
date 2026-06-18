@@ -241,15 +241,20 @@ export class TreeRenderer {
 
     // Compute legend band height (reserved below the tree, not to the right)
     const legend = this._ann?.legend;
+    const legendCaption = this._ann?.legendCaption;
     let legendBandH = 0;
-    if (legend?.length) {
-      const innerW    = w - PAD_LEFT - 20;
-      const maxEntryW = Math.max(...legend.map(
-        e => LEGEND_DOT_R * 2 + LEGEND_PADX + (e.label || "").length * 6 + LEGEND_GAP_X
-      ));
-      const perRow    = Math.max(1, Math.floor(innerW / maxEntryW));
-      const rows      = Math.min(Math.ceil(legend.length / perRow), MAX_LEGEND_ROWS);
-      legendBandH     = LEGEND_TOP_GAP + rows * LEGEND_ITEM_H + LEGEND_BOT_GAP;
+    if (legend?.length || legendCaption) {
+      if (legend?.length) {
+        const innerW    = w - PAD_LEFT - 20;
+        const maxEntryW = Math.max(...legend.map(
+          e => LEGEND_DOT_R * 2 + LEGEND_PADX + (e.label || "").length * 6 + LEGEND_GAP_X
+        ));
+        const perRow    = Math.max(1, Math.floor(innerW / maxEntryW));
+        const rows      = Math.min(Math.ceil(legend.length / perRow), MAX_LEGEND_ROWS);
+        legendBandH     = LEGEND_TOP_GAP + rows * LEGEND_ITEM_H + LEGEND_BOT_GAP;
+      } else {
+        legendBandH = LEGEND_TOP_GAP + LEGEND_ITEM_H + LEGEND_BOT_GAP;
+      }
     }
 
     return {
@@ -554,7 +559,7 @@ export class TreeRenderer {
     }
 
     // ── Legend (top band) ────────────────────────────────────
-    if (ann.legend?.length && pad.legendBandH && !isRadial) {
+    if ((ann.legend?.length || ann.legendCaption) && pad.legendBandH && !isRadial) {
       this._layers.overlay.activate();
       const FONT_SZ   = 10;
       const bandTopY  = LEGEND_TOP_GAP;
@@ -581,6 +586,18 @@ export class TreeRenderer {
         tx.fontSize  = FONT_SZ;
         tx.fillColor = entry.color;
         x += entryW;
+      }
+
+      // Caption right-aligned at first legend row
+      if (ann.legendCaption) {
+        const captionColor = isRadial ? "#888"
+          : (this._opts.dark ? "rgba(230,237,243,0.55)" : "rgba(36,41,47,0.50)");
+        const cy = bandTopY + LEGEND_ITEM_H / 2;
+        const cap = new p.PointText(new p.Point(pad.w - 20, cy + FONT_SZ * 0.35));
+        cap.content    = ann.legendCaption;
+        cap.fontSize   = FONT_SZ;
+        cap.fillColor  = captionColor;
+        cap.justification = "right";
       }
     }
 

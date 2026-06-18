@@ -122,7 +122,7 @@
     /* ── Sidebar panels ─────────────────────────────────────── */
     .sb-panel {
       display: none; flex-direction: column; flex: 1;
-      overflow-y: auto; overflow-x: hidden; min-width: 0;
+      overflow-y: auto; overflow-x: hidden; min-width: 0; min-height: 0;
       padding: 1.1rem 1.1rem 1.5rem;
     }
     .sb-panel.active { display: flex; }
@@ -526,6 +526,29 @@
     }
     .collapsible.collapsed { max-height: 0; opacity: 0; }
 
+    /* ── Tooltip size override (Pico CSS) ────────────────────── */
+    [data-tooltip]::before {
+      max-width: 220px !important;
+      white-space: normal !important;
+      width: max-content !important;
+      text-align: left !important;
+      font-size: 0.72rem !important;
+      line-height: 1.35 !important;
+    }
+
+    /* ── Sweep panel (sidebar tab) ───────────────────────────── */
+    .sweep-panel { display: flex; flex-direction: column; gap: 0.6rem; }
+    .sweep-stepper {
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .sweep-stepper .toggle-btn {
+      width: 28px; height: 28px; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; flex-shrink: 0;
+    }
+    .sweep-stepper .sweep-n { min-width: 54px; text-align: center; }
+    .sweep-stepper .sweep-div { font-size: 0.78rem; opacity: 0.7; flex: 1; }
+
     /* ── Sidebar collapse ────────────────────────────────────── */
     .app-body {
       transition: grid-template-columns 0.2s ease;
@@ -592,6 +615,7 @@
       <div class="sidebar-tabs">
         <button class="sb-tab active" id="tab-btn-params" data-tab="params">Parameters</button>
         <button class="sb-tab" id="tab-btn-results" data-tab="results" style="display:none">Results</button>
+        <button class="sb-tab" id="tab-btn-sweep" data-tab="sweep" style="display:none">Sweep</button>
         <span class="sb-tab-spacer"></span>
       </div>
 
@@ -722,6 +746,20 @@
         </div><!-- /#results-panel -->
       </div><!-- /#tab-results -->
 
+      <!-- Sweep panel (sample mode only) -->
+      <div id="tab-sweep" class="sb-panel">
+        <div class="sweep-panel">
+          <p class="section-label" style="margin-top:0">Vary n</p>
+          <div class="sweep-stepper">
+            <button id="sweep-dec" class="toggle-btn" aria-label="Decrease n">−</button>
+            <span id="sweep-n-display" class="sweep-n">n = <strong id="sweep-n-val">1</strong></span>
+            <button id="sweep-inc" class="toggle-btn" aria-label="Increase n">+</button>
+            <span id="sweep-diversity-display" class="sweep-div"></span>
+          </div>
+          <canvas id="sweep-chart" width="280" height="70" style="display:none; border-radius:4px; background:var(--bg-base); width:100%;"></canvas>
+        </div>
+      </div><!-- /#tab-sweep -->
+
     </aside>
 
     <!-- ── Viz area ──────────────────────────────────────────── -->
@@ -735,11 +773,6 @@
         <span class="viz-title">Phylogenetic Tree</span>
         <span class="viz-spacer"></span>
         <button id="layout-toggle" class="toolbar-btn" style="display:none" aria-label="Toggle layout mode">Cladogram</button>
-        <div class="toggle-group" id="zoom-controls" style="display:none">
-          <button class="toggle-btn" id="zoom-out-btn" aria-label="Zoom out">−</button>
-          <button class="toggle-btn" id="zoom-reset-btn" aria-label="Reset zoom">1:1</button>
-          <button class="toggle-btn" id="zoom-in-btn" aria-label="Zoom in">+</button>
-        </div>
         <button id="export-btn" class="toolbar-btn" style="display:none" aria-label="Export tree image">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
