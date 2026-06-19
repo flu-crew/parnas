@@ -62,6 +62,9 @@ export class TreeRenderer {
     this._ecKey    = null;
     this._ecResult = null;
 
+    // SymbolDefinitions created for leaf dots; cleared before each redraw
+    this._dotSymDefs = [];
+
     // id → paper.Item for click hit-testing
     this._hitNodes   = new Map();
     this._hitBranches = new Map();
@@ -187,6 +190,9 @@ export class TreeRenderer {
   // ── Internal ────────────────────────────────────────────────────────────
 
   _clearLayers() {
+    // Remove SymbolDefinitions (project-level; not cleaned by removeChildren)
+    for (const sd of this._dotSymDefs) sd.remove();
+    this._dotSymDefs = [];
     for (const layer of Object.values(this._layers)) {
       layer.activate();
       layer.removeChildren();
@@ -319,6 +325,9 @@ export class TreeRenderer {
     // O(1) clade lookup — avoids O(n × groups) .find() per node in drawSubtree
     const cladeMap = new Map((ann.cladeGroups || []).map(g => [g.nodeId, g]));
 
+    // Shared SymbolDefinition cache for leaf dots — same (radius, color) → one item in project
+    const dotSymCache = new Map(); // `${radius}:${color}` → SymbolDefinition
+
     // Collapsed clade node ids
     const collapsedSet = new Set(
       (ann.cladeGroups || []).filter(g => g.collapsed).map(g => g.nodeId)
@@ -446,10 +455,25 @@ export class TreeRenderer {
 
       if (dotR > 0) {
         this._layers.node.activate();
-        const dot = new p.Path.Circle(new p.Point(px.x, px.y), dotR);
-        dot.fillColor   = color || textDef;
-        dot.strokeColor = isRep ? (isDark ? "#ffffff" : "#000000") : null;
-        dot.strokeWidth = isRep ? 1.5 : 0;
+        let dot;
+        if (isRep) {
+          // Rep dots are few (~n) and have per-instance stroke; keep as Path.Circle
+          dot = new p.Path.Circle(new p.Point(px.x, px.y), dotR);
+          dot.fillColor   = color || textDef;
+          dot.strokeColor = isDark ? "#ffffff" : "#000000";
+          dot.strokeWidth = 1.5;
+        } else {
+          // Regular leaf dots: many with same (radius, color) → share SymbolDefinition
+          const symKey = `${dotR}:${color || textDef}`;
+          if (!dotSymCache.has(symKey)) {
+            const proto = new p.Path.Circle(new p.Point(0, 0), dotR);
+            proto.fillColor = color || textDef;
+            const sd = new p.SymbolDefinition(proto); // proto removed from scene by paper.js
+            dotSymCache.set(symKey, sd);
+            this._dotSymDefs.push(sd);
+          }
+          dot = dotSymCache.get(symKey).place(new p.Point(px.x, px.y));
+        }
         this._hitNodes.set(node.id, dot);
       }
 
