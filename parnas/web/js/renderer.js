@@ -58,6 +58,10 @@ export class TreeRenderer {
     this._ann    = null;
     this._opts   = {};
 
+    // Cache for _effectiveColors(): keyed on reference identity of ann+opts fields
+    this._ecKey    = null;
+    this._ecResult = null;
+
     // id → paper.Item for click hit-testing
     this._hitNodes   = new Map();
     this._hitBranches = new Map();
@@ -253,15 +257,23 @@ export class TreeRenderer {
     // Build Map<nodeId, hex|null> by propagating leaf colours upward.
     const ann    = this._ann    || {};
     const opts   = this._opts   || {};
-    const nc     = ann.nodeColors  || new Map();
-    const repSet = opts.repsSet    || new Set();
-    const repCol = opts.repColors  || {};
+    const nc     = ann.nodeColors  || null;
+    const repSet = opts.repsSet    || null;
+    const repCol = opts.repColors  || null;
+
+    // Return cached result when all inputs are reference-identical (e.g. theme toggle, resize)
+    const k = this._ecKey;
+    if (k && k.ann === ann && k.nc === nc && k.repSet === repSet && k.repCol === repCol) {
+      return this._ecResult;
+    }
 
     const colorOf = new Map();
+    const ncMap   = nc  || new Map();
+    const repColO = repCol || {};
 
     // Leaves
     for (const leaf of leaves(this._root)) {
-      const c = nc.get(leaf.name) || repCol[leaf.name] || null;
+      const c = ncMap.get(leaf.name) || repColO[leaf.name] || null;
       colorOf.set(leaf.id, c);
     }
 
@@ -277,6 +289,8 @@ export class TreeRenderer {
       );
     });
 
+    this._ecKey    = { ann, nc, repSet, repCol };
+    this._ecResult = colorOf;
     return colorOf;
   }
 
@@ -301,6 +315,9 @@ export class TreeRenderer {
     const repsSet   = opts.repsSet || new Set();
 
     const effectiveColor = this._effectiveColors();
+
+    // O(1) clade lookup — avoids O(n × groups) .find() per node in drawSubtree
+    const cladeMap = new Map((ann.cladeGroups || []).map(g => [g.nodeId, g]));
 
     // Collapsed clade node ids
     const collapsedSet = new Set(
@@ -404,7 +421,7 @@ export class TreeRenderer {
             tri.strokeWidth = 1;
 
             // Clade label
-            const cg = (ann.cladeGroups || []).find(g => g.nodeId === node.id);
+            const cg = cladeMap.get(node.id);
             const label = cg?.label || `[${leafList.length}]`;
             this._layers.label.activate();
             const tx = new p.PointText(new p.Point(top.x + LABEL_PAD, (top.y + bot.y) / 2 + 4));
@@ -478,8 +495,8 @@ export class TreeRenderer {
       }
 
       // Clade group bracket/label (non-collapsed)
-      const cg = (ann.cladeGroups || []).find(g => g.nodeId === node.id && !g.collapsed);
-      if (cg?.label) {
+      const cg = cladeMap.get(node.id);
+      if (cg?.label && !cg.collapsed) {
         this._layers.overlay.activate();
         const tx = new p.PointText(new p.Point(px.x, px.y - 9));
         tx.content    = cg.label;
