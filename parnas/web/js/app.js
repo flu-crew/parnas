@@ -180,7 +180,7 @@ function wireRunButton() {
       exclude_obj:     document.getElementById("exc-obj").value.trim(),
       exclude_fully:   document.getElementById("exc-full").value.trim(),
       constrain_fully: document.getElementById("constrain").value.trim(),
-      hasWeights:      !!weightsFile,
+      weightsKey:      weightsFile ? `${weightsFile.name}:${weightsFile.size}` : null,
     }) : null;
 
     if (runCacheKey && sweepCache.has(runCacheKey)) {
@@ -684,7 +684,7 @@ async function sweepTo(newN) {
     exclude_obj:     document.getElementById("exc-obj").value.trim(),
     exclude_fully:   document.getElementById("exc-full").value.trim(),
     constrain_fully: document.getElementById("constrain").value.trim(),
-    hasWeights:      !!weightsFile,
+    weightsKey:      weightsFile ? `${weightsFile.name}:${weightsFile.size}` : null,
   });
 
   if (sweepCache.has(cacheKey)) {

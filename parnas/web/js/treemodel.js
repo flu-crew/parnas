@@ -15,10 +15,16 @@ export function postorder(node, fn) {
   fn(node);
 }
 
-/** Return all leaf nodes (array). */
+/** WeakMap memo for leaves(); auto-GC when node is discarded. */
+const _leavesCache = new WeakMap();
+
+/** Return all leaf nodes (array). Result is cached per root node. */
 export function leaves(root) {
+  const hit = _leavesCache.get(root);
+  if (hit) return hit;
   const out = [];
   preorder(root, n => { if (n.children.length === 0) out.push(n); });
+  _leavesCache.set(root, out);
   return out;
 }
 

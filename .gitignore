@@ -45,3 +45,6 @@ sims/
 tutorial/workfiles/
 testfiles/
 misc/
+
+# Local working notes (not shipped)
+parnas/web/OPTIMIZATION.md
