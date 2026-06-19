@@ -62,8 +62,9 @@ export class TreeRenderer {
     this._ecKey    = null;
     this._ecResult = null;
 
-    // SymbolDefinitions created for leaf dots; cleared before each redraw
-    this._dotSymDefs = [];
+    // Persistent SymbolDefinition cache for leaf dots: "radius:color" → SymbolDefinition
+    // Reused across redraws; SymbolItems (scene children) are cleared by removeChildren().
+    this._dotSymCache = new Map();
 
     // id → paper.Item for click hit-testing
     this._hitNodes   = new Map();
@@ -190,9 +191,6 @@ export class TreeRenderer {
   // ── Internal ────────────────────────────────────────────────────────────
 
   _clearLayers() {
-    // Remove SymbolDefinitions (project-level; not cleaned by removeChildren)
-    for (const sd of this._dotSymDefs) sd.remove();
-    this._dotSymDefs = [];
     for (const layer of Object.values(this._layers)) {
       layer.activate();
       layer.removeChildren();
@@ -325,8 +323,7 @@ export class TreeRenderer {
     // O(1) clade lookup — avoids O(n × groups) .find() per node in drawSubtree
     const cladeMap = new Map((ann.cladeGroups || []).map(g => [g.nodeId, g]));
 
-    // Shared SymbolDefinition cache for leaf dots — same (radius, color) → one item in project
-    const dotSymCache = new Map(); // `${radius}:${color}` → SymbolDefinition
+    // this._dotSymCache: persistent across redraws; SymbolItems cleared by removeChildren()
 
     // Collapsed clade node ids
     const collapsedSet = new Set(
@@ -465,14 +462,12 @@ export class TreeRenderer {
         } else {
           // Regular leaf dots: many with same (radius, color) → share SymbolDefinition
           const symKey = `${dotR}:${color || textDef}`;
-          if (!dotSymCache.has(symKey)) {
+          if (!this._dotSymCache.has(symKey)) {
             const proto = new p.Path.Circle(new p.Point(0, 0), dotR);
             proto.fillColor = color || textDef;
-            const sd = new p.SymbolDefinition(proto); // proto removed from scene by paper.js
-            dotSymCache.set(symKey, sd);
-            this._dotSymDefs.push(sd);
+            this._dotSymCache.set(symKey, new p.SymbolDefinition(proto));
           }
-          dot = dotSymCache.get(symKey).place(new p.Point(px.x, px.y));
+          dot = this._dotSymCache.get(symKey).place(new p.Point(px.x, px.y));
         }
         this._hitNodes.set(node.id, dot);
       }
