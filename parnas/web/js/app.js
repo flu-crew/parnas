@@ -58,6 +58,8 @@ let resizeObs   = null;
 let sweepChart  = null;
 let sweepAbort  = null;
 let currentSweepN = 1;
+/** Session-only memo cache: param-key → /api/run response. Not serialized in export. */
+const sweepCache = new Map();
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
 const treeCard     = document.getElementById("tree-card");
@@ -222,10 +224,10 @@ function wireRunButton() {
       exportBtn.style.display = "flex";
       if (layoutToggle) layoutToggle.style.display = "flex";
 
-      // Sweep tab: show only for non-cover sample mode
-      const sweepTabBtn = document.getElementById("tab-btn-sweep");
+      // Sweep submenu: visible only for non-cover sample mode
       const showSweep = data.mode === "sample" && !cover;
-      if (sweepTabBtn) sweepTabBtn.style.display = showSweep ? "" : "none";
+      const sweepSection = document.getElementById("sweep-section");
+      if (sweepSection) sweepSection.style.display = showSweep ? "" : "none";
       if (showSweep) {
         currentSweepN = n || 1;
         document.getElementById("sweep-n-val").textContent = currentSweepN;
@@ -235,10 +237,6 @@ function wireRunButton() {
           sweepChart.reset();
           sweepChart.addPoint(currentSweepN, data.diversity);
         }
-      } else if (sweepTabBtn && window._activateSidebarTab) {
-        // If sweep was active tab, switch to results
-        const sweepPanel = document.getElementById("tab-sweep");
-        if (sweepPanel?.classList.contains("active")) window._activateSidebarTab("results");
       }
 
     } catch (err) {
@@ -510,27 +508,7 @@ function showResults(data) {
   if (data.mode === "sample") {
     sampleDiv.style.display = "block";
     evalDiv.style.display   = "none";
-
-    const pill = document.getElementById("diversity-pill");
-    if (data.diversity != null) {
-      document.getElementById("diversity-val").textContent = data.diversity.toFixed(2) + "%";
-      pill.style.display = "inline-flex";
-    } else {
-      pill.style.display = "none";
-    }
-
-    const reps = data.representatives || [];
-    document.getElementById("rep-label").textContent = `Representatives (${reps.length})`;
-    const list = document.getElementById("rep-list");
-    list.innerHTML = "";
-    reps.forEach(rep => {
-      const li = document.createElement("li");
-      li.className = "rep-item";
-      const color = data.colors?.[rep] || "#888";
-      li.innerHTML = `<span class="rep-dot" style="background:${color};color:${color}"></span>
-                      <span>${escapeHtml(rep)}</span>`;
-      list.appendChild(li);
-    });
+    renderSampleReps(data);
 
   } else {
     sampleDiv.style.display = "none";
@@ -549,6 +527,27 @@ function showResults(data) {
       statsEl.appendChild(makeStat("Better than random", data.percentile + "% of sets"));
     }
 
+    // Prior representatives (evaluate mode only)
+    const priorRepsData = data.prior_centers || [];
+    const priorLabel = document.getElementById("eval-prior-label");
+    const priorList  = document.getElementById("eval-prior-list");
+    const showPrior  = data.mode !== "evaluate_cover" && priorRepsData.length > 0;
+    if (priorLabel) priorLabel.style.display = showPrior ? "" : "none";
+    if (priorList) {
+      priorList.style.display = showPrior ? "" : "none";
+      priorList.innerHTML = "";
+      if (showPrior) {
+        priorRepsData.forEach(rep => {
+          const li = document.createElement("li");
+          li.className = "rep-item";
+          const color = data.colors_prior?.[rep] || data.colors?.[rep] || "#888";
+          li.innerHTML = `<span class="rep-dot" style="background:${color};color:${color}"></span>
+                          <span>${escapeHtml(rep)}</span>`;
+          priorList.appendChild(li);
+        });
+      }
+    }
+
     const list = document.getElementById("eval-rep-list");
     list.innerHTML = "";
     const bestReps = data.best_representatives || data.prior_centers || [];
@@ -561,6 +560,29 @@ function showResults(data) {
       list.appendChild(li);
     });
   }
+}
+
+function renderSampleReps(data) {
+  const pill = document.getElementById("diversity-pill");
+  if (data.diversity != null) {
+    document.getElementById("diversity-val").textContent = data.diversity.toFixed(2) + "%";
+    pill.style.display = "inline-flex";
+  } else {
+    pill.style.display = "none";
+  }
+
+  const reps = data.representatives || [];
+  document.getElementById("rep-label").textContent = `Representatives (${reps.length})`;
+  const list = document.getElementById("rep-list");
+  list.innerHTML = "";
+  reps.forEach(rep => {
+    const li = document.createElement("li");
+    li.className = "rep-item";
+    const color = data.colors?.[rep] || "#888";
+    li.innerHTML = `<span class="rep-dot" style="background:${color};color:${color}"></span>
+                    <span>${escapeHtml(rep)}</span>`;
+    list.appendChild(li);
+  });
 }
 
 function makeStat(label, value) {
@@ -578,18 +600,56 @@ function wireSweepBar() {
   document.getElementById("sweep-inc")?.addEventListener("click", () => sweepTo(currentSweepN + 1));
 }
 
+function _applySweepResult(newN, data) {
+  annotations = emptyAnnotations();
+  if (data.colors) annotations = setClusterColors(annotations, data.colors);
+  const legendEntries = (data.representatives || [])
+    .filter(r => data.colors?.[r])
+    .map(r => ({ label: r, color: data.colors[r] }));
+  if (legendEntries.length) annotations = setLegend(annotations, legendEntries);
+
+  renderOpts.repsSet   = new Set(data.representatives || []);
+  renderOpts.repColors = data.colors || {};
+  if (renderer) renderer.setAnnotations(annotations);
+
+  const divText = data.diversity != null ? data.diversity.toFixed(2) + "% diversity" : "";
+  document.getElementById("sweep-diversity-display").textContent = divText;
+  if (sweepChart) sweepChart.addPoint(newN, data.diversity);
+  renderSampleReps(data);
+}
+
 async function sweepTo(newN) {
   if (!treeFile || !treeRoot) return;
   if (newN < 1) return;
   // Cover mode: n is irrelevant
   if (document.getElementById("cover-cb")?.checked) return;
 
+  currentSweepN = newN;
+  document.getElementById("sweep-n-val").textContent = newN;
+
+  // Build param key for memoization (all fields that affect the result)
+  const cacheKey = JSON.stringify({
+    n:               newN,
+    binary:          document.getElementById("binary-cb").checked,
+    prior:           document.getElementById("prior-input").value.trim(),
+    radius:          document.getElementById("radius-input").value.trim(),
+    threshold:       document.getElementById("threshold-input").value.trim(),
+    exclude_rep:     document.getElementById("exc-rep").value.trim(),
+    exclude_obj:     document.getElementById("exc-obj").value.trim(),
+    exclude_fully:   document.getElementById("exc-full").value.trim(),
+    constrain_fully: document.getElementById("constrain").value.trim(),
+    hasWeights:      !!weightsFile,
+  });
+
+  if (sweepCache.has(cacheKey)) {
+    _applySweepResult(newN, sweepCache.get(cacheKey));
+    return;
+  }
+
   // Cancel prior in-flight sweep
   if (sweepAbort) sweepAbort.abort();
   sweepAbort = new AbortController();
 
-  currentSweepN = newN;
-  document.getElementById("sweep-n-val").textContent = newN;
   document.getElementById("sweep-diversity-display").textContent = "…";
 
   const fd = new FormData();
@@ -614,24 +674,8 @@ async function sweepTo(newN) {
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || "Server error");
 
-    // Update colors without re-layout
-    annotations = emptyAnnotations();
-    if (data.colors) annotations = setClusterColors(annotations, data.colors);
-    const legendEntries = (data.representatives || [])
-      .filter(r => data.colors?.[r])
-      .map(r => ({ label: r, color: data.colors[r] }));
-    if (legendEntries.length) annotations = setLegend(annotations, legendEntries);
-
-    renderOpts.repsSet   = new Set(data.representatives || []);
-    renderOpts.repColors = data.colors || {};
-    if (renderer) renderer.setAnnotations(annotations);
-
-    // Update sweep bar display
-    const divText = data.diversity != null ? data.diversity.toFixed(2) + "% diversity" : "";
-    document.getElementById("sweep-diversity-display").textContent = divText;
-    if (sweepChart) sweepChart.addPoint(newN, data.diversity);
-
-    // Sync panel if open
+    sweepCache.set(cacheKey, data);
+    _applySweepResult(newN, data);
 
   } catch (err) {
     if (err.name !== "AbortError") {
@@ -818,6 +862,7 @@ function wireExportDialog() {
 function loadSession(json) {
   if (!json?.version || !json?.newick) throw new Error("Invalid session file.");
 
+  sweepCache.clear(); // session-only cache; does not persist across loads
   lastNewick = json.newick;
   lastData   = json.appState || {};
 

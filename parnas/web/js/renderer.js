@@ -32,7 +32,7 @@ const LEGEND_PADX    = 6;
 const LEGEND_GAP_X   = 18; // gap between consecutive legend entries
 const LEGEND_TOP_GAP = 8;  // space above first legend row
 const LEGEND_BOT_GAP = 4;  // space below last legend row
-const MAX_LEGEND_ROWS = 4; // cap band to this many rows
+const MAX_LEGEND_ROWS = 8; // cap band to this many rows
 
 export class TreeRenderer {
   /**
@@ -71,6 +71,9 @@ export class TreeRenderer {
     // Smooth zoom: CSS scale accumulates during gesture, committed (paper re-raster) after settle
     this._cssScale    = 1;
     this._zoomOriginP = null; // project-space anchor for commit
+    // Smooth pan: CSS translate accumulates during drag, committed to paper once on mouseup
+    this._cssPanX     = 0;
+    this._cssPanY     = 0;
     this._commitZoom  = this._debounce(() => {
       if (this._cssScale === 1) return;
       this._p.activate();
@@ -79,7 +82,7 @@ export class TreeRenderer {
       this._cssScale    = 1;
       this._zoomOriginP = null;
       this._canvas.style.transformOrigin = "center center";
-      this._canvas.style.transform       = "translateZ(0)";
+      this._applyTransform();
       this._p.view.update();
     }, 120);
 
@@ -89,6 +92,17 @@ export class TreeRenderer {
   _debounce(fn, ms) {
     let t;
     return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  }
+
+  // Write combined pan+scale CSS transform (pan in screen-space, then scale)
+  _applyTransform() {
+    const tx = this._cssPanX, ty = this._cssPanY, s = this._cssScale;
+    if (tx === 0 && ty === 0 && s === 1) {
+      this._canvas.style.transform = "translateZ(0)";
+    } else {
+      this._canvas.style.transform =
+        `translateZ(0) translate(${tx}px, ${ty}px) scale(${s})`;
+    }
   }
 
   // ── Public API ─────────────────────────────────────────────────────────
@@ -118,11 +132,13 @@ export class TreeRenderer {
 
   resetView() {
     this._p.activate();
-    // Cancel any pending CSS-scale gesture
+    // Cancel any pending CSS-scale/pan gesture
     this._cssScale    = 1;
     this._zoomOriginP = null;
+    this._cssPanX     = 0;
+    this._cssPanY     = 0;
     this._canvas.style.transformOrigin = "center center";
-    this._canvas.style.transform       = "translateZ(0)";
+    this._applyTransform();
     this._p.view.matrix = new this._p.Matrix();
     this._p.view.update();
   }
@@ -131,7 +147,7 @@ export class TreeRenderer {
     // Accumulate CSS scale (cheap, GPU-composited) then commit to paper once settled
     this._cssScale *= factor;
     this._canvas.style.transformOrigin = "center center";
-    this._canvas.style.transform = `translateZ(0) scale(${this._cssScale})`;
+    this._applyTransform();
     this._commitZoom();
   }
 
@@ -636,11 +652,13 @@ export class TreeRenderer {
     const p      = this._p;
     const canvas = this._canvas;
     let panning  = false;
+    let startPt  = null; // for click-vs-drag detection
     let lastPt   = null;
 
     canvas.addEventListener("mousedown", e => {
       if (e.button !== 0) return;
       panning = true;
+      startPt = { x: e.clientX, y: e.clientY };
       lastPt  = { x: e.clientX, y: e.clientY };
     });
 
@@ -649,18 +667,38 @@ export class TreeRenderer {
       const dx = e.clientX - lastPt.x;
       const dy = e.clientY - lastPt.y;
       lastPt = { x: e.clientX, y: e.clientY };
-      p.view.translate(new p.Point(dx, dy));
-      p.view.update();
+      // Accumulate CSS translate (GPU-composited, no paper redraw)
+      this._cssPanX += dx;
+      this._cssPanY += dy;
+      this._applyTransform();
     });
 
     window.addEventListener("mouseup", e => {
-      // Short drag = click; long drag = pan
-      if (panning && lastPt) {
-        const dx = Math.abs(e.clientX - lastPt.x);
-        const dy = Math.abs(e.clientY - lastPt.y);
-        if (dx + dy < 4) this._handleClick(e);
+      if (panning) {
+        // Short drag = click; long drag = pan
+        if (startPt) {
+          const dx = Math.abs(e.clientX - startPt.x);
+          const dy = Math.abs(e.clientY - startPt.y);
+          if (dx + dy < 4) {
+            // Reset accumulated pan (no net movement) and treat as click
+            this._cssPanX = 0;
+            this._cssPanY = 0;
+            this._applyTransform();
+            this._handleClick(e);
+          } else {
+            // Commit CSS translate into paper view (single re-raster)
+            this._p.activate();
+            this._p.view.translate(new this._p.Point(this._cssPanX, this._cssPanY));
+            this._cssPanX = 0;
+            this._cssPanY = 0;
+            this._canvas.style.transformOrigin = "center center";
+            this._applyTransform();
+            this._p.view.update();
+          }
+        }
       }
       panning = false;
+      startPt = null;
       lastPt  = null;
     });
 
@@ -673,7 +711,7 @@ export class TreeRenderer {
       // Accumulate CSS scale relative to pointer position (cheap GPU composite)
       this._cssScale *= factor;
       canvas.style.transformOrigin = `${e.offsetX}px ${e.offsetY}px`;
-      canvas.style.transform = `translateZ(0) scale(${this._cssScale})`;
+      this._applyTransform();
       this._commitZoom();
     }, { passive: false });
   }

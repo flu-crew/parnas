@@ -17,8 +17,8 @@ export class SweepChart {
     else this._points.push({ n, diversity });
     this._points.sort((a, b) => a.n - b.n);
     this._currentN = n;
-    this.draw();
     this._canvas.style.display = this._points.length >= 2 ? "block" : "none";
+    this.draw();
   }
 
   setCurrentN(n) {
@@ -40,9 +40,15 @@ export class SweepChart {
 
     const canvas = this._canvas;
     const ctx    = this._ctx;
-    const W = canvas.width;
-    const H = canvas.height;
-    const PAD = { l: 24, r: 8, t: 6, b: 16 };
+    // Size backing buffer to displayed CSS box at device pixel ratio (prevents clipping/stretch)
+    const rect = canvas.getBoundingClientRect();
+    const dpr  = window.devicePixelRatio || 1;
+    canvas.width  = Math.round(rect.width  * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const W = rect.width;
+    const H = rect.height;
+    const PAD = { l: 34, r: 8, t: 6, b: 20 };
 
     ctx.clearRect(0, 0, W, H);
 
@@ -77,8 +83,8 @@ export class SweepChart {
     ctx.fillText(maxDiv.toFixed(1) + "%", PAD.l - 2, toY(maxDiv) + 3);
     ctx.fillText(minDiv.toFixed(1) + "%", PAD.l - 2, toY(minDiv) + 3);
     ctx.textAlign = "center";
-    ctx.fillText(minN, toX(minN), H - 2);
-    ctx.fillText(maxN, toX(maxN), H - 2);
+    ctx.fillText(minN, toX(minN), H - 4);
+    ctx.fillText(maxN, toX(maxN), H - 4);
 
     // Line
     ctx.strokeStyle = lineColor;

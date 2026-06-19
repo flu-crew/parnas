@@ -91,7 +91,9 @@
     .app-body {
       display: grid;
       grid-template-columns: 360px 1fr;
+      grid-template-rows: minmax(0, 1fr);
       overflow: hidden;
+      min-height: 0;
     }
 
     /* ── Sidebar ─────────────────────────────────────────────── */
@@ -228,7 +230,7 @@
     }
     .sweep-n { font-size: 0.82rem; min-width: 54px; text-align: center; }
     .sweep-div { font-size: 0.78rem; opacity: 0.7; flex: 1; }
-    #sweep-chart { border-radius: 4px; background: var(--bg); }
+    #sweep-chart { border-radius: 4px; background: var(--bg); width: 100%; height: 80px; }
 
     .diversity-pill {
       display: inline-flex; align-items: center; gap: 0.4rem;
@@ -615,7 +617,6 @@
       <div class="sidebar-tabs">
         <button class="sb-tab active" id="tab-btn-params" data-tab="params">Parameters</button>
         <button class="sb-tab" id="tab-btn-results" data-tab="results" style="display:none">Results</button>
-        <button class="sb-tab" id="tab-btn-sweep" data-tab="sweep" style="display:none">Sweep</button>
         <span class="sb-tab-spacer"></span>
       </div>
 
@@ -630,12 +631,12 @@
         <p class="drop-zone-primary"  id="dz-primary">Click or drag a file here</p>
         <p class="drop-zone-secondary" id="dz-secondary">Newick or Nexus format</p>
       </div>
-      <input type="file" id="tree-file" accept=".tre,.nwk,.nex,.nexus,.tree,.txt" style="display:none"/>
+      <input type="file" id="tree-file" accept=".tre,.nwk,.nex,.nexus,.tree,.txt,.treefile" style="display:none"/>
       </div><!-- /#input-fields -->
 
       <!-- Sampling -->
       <p class="section-label">Sampling <button class="collapse-btn" data-target="sampling-fields" aria-label="Toggle sampling">▾</button></p>
-      <div id="sampling-fields" class="collapsible">
+      <div id="sampling-fields" class="collapsible collapsed">
 
       <div id="n-row">
         <label class="field-label" for="n-input">Representatives (n) <a class="param-help" href="https://github.com/flu-crew/parnas#selecting-best-representatives" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
@@ -663,7 +664,7 @@
 
       <!-- Prior representatives -->
       <p class="section-label">Prior Representatives <button class="collapse-btn" data-target="prior-fields" aria-label="Toggle prior representatives">▾</button></p>
-      <div id="prior-fields" class="collapsible">
+      <div id="prior-fields" class="collapsible collapsed">
       <label class="field-label" for="prior-input">Regex pattern <a class="param-help" href="https://github.com/flu-crew/parnas#using-prior-representatives" target="_blank" rel="noopener" aria-label="Documentation">?</a></label>
       <input type="text" id="prior-input" placeholder="e.g. Vaccine.*" data-tooltip="Regular expression matching taxa to treat as pre-existing representatives" data-placement="top"/>
 
@@ -733,6 +734,18 @@
           <div id="diversity-pill" class="diversity-pill" style="display:none">
             Diversity covered:&nbsp;<strong id="diversity-val">—</strong>
           </div>
+          <div id="sweep-section" style="display:none">
+            <p class="section-label">Vary n <button class="collapse-btn" data-target="sweep-fields" aria-label="Toggle sweep">▾</button></p>
+            <div id="sweep-fields" class="collapsible">
+              <div class="sweep-stepper">
+                <button id="sweep-dec" class="toggle-btn" aria-label="Decrease n">−</button>
+                <span id="sweep-n-display" class="sweep-n">n = <strong id="sweep-n-val">1</strong></span>
+                <button id="sweep-inc" class="toggle-btn" aria-label="Increase n">+</button>
+                <span id="sweep-diversity-display" class="sweep-div"></span>
+              </div>
+              <canvas id="sweep-chart" style="display:none;"></canvas>
+            </div>
+          </div>
           <p class="section-label" id="rep-label">Representatives</p>
           <ul class="rep-list" id="rep-list"></ul>
         </div>
@@ -740,25 +753,14 @@
         <!-- Evaluate mode results -->
         <div id="eval-results" style="display:none">
           <div class="stat-grid" id="eval-stats"></div>
+          <p class="section-label" id="eval-prior-label" style="margin-top:0.4rem">Prior Representatives</p>
+          <ul class="rep-list" id="eval-prior-list"></ul>
           <p class="section-label" style="margin-top:0.4rem">Best Representatives</p>
           <ul class="rep-list" id="eval-rep-list"></ul>
         </div>
         </div><!-- /#results-panel -->
       </div><!-- /#tab-results -->
 
-      <!-- Sweep panel (sample mode only) -->
-      <div id="tab-sweep" class="sb-panel">
-        <div class="sweep-panel">
-          <p class="section-label" style="margin-top:0">Vary n</p>
-          <div class="sweep-stepper">
-            <button id="sweep-dec" class="toggle-btn" aria-label="Decrease n">−</button>
-            <span id="sweep-n-display" class="sweep-n">n = <strong id="sweep-n-val">1</strong></span>
-            <button id="sweep-inc" class="toggle-btn" aria-label="Increase n">+</button>
-            <span id="sweep-diversity-display" class="sweep-div"></span>
-          </div>
-          <canvas id="sweep-chart" width="280" height="70" style="display:none; border-radius:4px; background:var(--bg-base); width:100%;"></canvas>
-        </div>
-      </div><!-- /#tab-sweep -->
 
     </aside>
 
