@@ -1,18 +1,16 @@
 /**
  * PARNAS web UI — app orchestrator.
- * Replaces the inline phylotree.js rendering in index.html.
  *
  * Responsibilities:
  *  - Wire up form submission → /api/run
  *  - Parse Newick response → tree model
  *  - Compute layout
  *  - Drive TreeRenderer (paper.js canvas)
- *  - Drive AnnotationPanel (Visual Options drawer)
  *  - Drive export dialog
  */
 
 import { parseNewick }                        from "./newick.js";
-import { leaves, indexByName }                from "./treemodel.js";
+import { leaves }                             from "./treemodel.js";
 import { rectangularLayout, cladogramLayout, radialLayout } from "./layout.js";
 import { TreeRenderer }                       from "./renderer.js";
 import {
@@ -21,7 +19,7 @@ import {
 import {
   buildAnnotatedNexus, buildSessionJson,
   downloadBlob, downloadText,
-  svgToRasterBlob, canvasToEps,
+  canvasToEps,
 }                                             from "./export.js";
 import { SweepChart }                        from "./sweep.js";
 
@@ -60,6 +58,13 @@ let sweepAbort  = null;
 let currentSweepN = 1;
 /** Session-only memo cache: param-key → /api/run response. Not serialized in export. */
 const sweepCache = new Map();
+const SWEEP_CACHE_MAX = 20;
+/** LRU-insert into sweepCache; evicts oldest entry when over cap. */
+function _sweepCacheSet(key, value) {
+  if (sweepCache.has(key)) sweepCache.delete(key); // move to end (LRU)
+  sweepCache.set(key, value);
+  if (sweepCache.size > SWEEP_CACHE_MAX) sweepCache.delete(sweepCache.keys().next().value);
+}
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
 const treeCard     = document.getElementById("tree-card");
@@ -115,14 +120,6 @@ function init() {
     rerenderActive();
   });
 
-  // Theme toggle (re-render on switch)
-  document.getElementById("theme-toggle")?.addEventListener("click", () => {
-    setTimeout(() => {
-      renderOpts.dark = document.documentElement.getAttribute("data-theme") !== "light";
-      if (renderer && treeRoot) renderer.setAnnotations(annotations);
-    }, 30);
-  });
-
   // Sweep chart
   const sweepCanvas = document.getElementById("sweep-chart");
   if (sweepCanvas) sweepChart = new SweepChart(sweepCanvas);
@@ -172,6 +169,52 @@ function wireRunButton() {
     runBtn.textContent = "Cancel";
     showOverlay("loading", "⏳", "Running PARNAS analysis…");
 
+    // For sample (non-cover, non-evaluate) runs, check shared sweep cache first
+    const runCacheKey = (!cover && !evaluate) ? JSON.stringify({
+      n:               n || 1,
+      binary:          document.getElementById("binary-cb").checked,
+      prior:           document.getElementById("prior-input").value.trim(),
+      radius:          document.getElementById("radius-input").value.trim(),
+      threshold:       document.getElementById("threshold-input").value.trim(),
+      exclude_rep:     document.getElementById("exc-rep").value.trim(),
+      exclude_obj:     document.getElementById("exc-obj").value.trim(),
+      exclude_fully:   document.getElementById("exc-full").value.trim(),
+      constrain_fully: document.getElementById("constrain").value.trim(),
+      hasWeights:      !!weightsFile,
+    }) : null;
+
+    if (runCacheKey && sweepCache.has(runCacheKey)) {
+      const cached = sweepCache.get(runCacheKey);
+      lastData   = cached;
+      lastNewick = cached.tree;
+      annotations = emptyAnnotations();
+      if (cached.colors) annotations = setClusterColors(annotations, cached.colors);
+      const repColors = cached.colors || {};
+      const repsAll = [
+        ...(cached.representatives      || []),
+        ...(cached.best_representatives || []),
+        ...(cached.prior_centers        || []),
+      ];
+      const legendEntries = repsAll.filter(r => repColors[r]).map(r => ({ label: r, color: repColors[r] }));
+      if (legendEntries.length) annotations = setLegend(annotations, legendEntries);
+      renderOpts.dark = document.documentElement.getAttribute("data-theme") !== "light";
+      loadAndRender(cached);
+      showResults(cached);
+      exportBtn.style.display = "flex";
+      if (layoutToggle) layoutToggle.style.display = "flex";
+      const sweepSection = document.getElementById("sweep-section");
+      if (sweepSection) sweepSection.style.display = "";
+      currentSweepN = n || 1;
+      document.getElementById("sweep-n-val").textContent = currentSweepN;
+      const divText = cached.diversity != null ? cached.diversity.toFixed(2) + "% diversity" : "";
+      document.getElementById("sweep-diversity-display").textContent = divText;
+      if (sweepChart) { sweepChart.reset(); sweepChart.addPoint(currentSweepN, cached.diversity); }
+      currentAbort = null;
+      runBtn.removeAttribute("aria-busy");
+      runBtn.textContent = "Run Analysis";
+      return;
+    }
+
     const fd = new FormData();
     fd.append("tree",            treeFile);
     fd.append("n",               n || 1);
@@ -199,6 +242,9 @@ function wireRunButton() {
 
       lastData   = data;
       lastNewick = data.tree;
+
+      // Cache sample results so sweep and repeat runs skip the server
+      if (runCacheKey) _sweepCacheSet(runCacheKey, data);
 
       // Parse + layout + render
       annotations = emptyAnnotations();
@@ -674,7 +720,7 @@ async function sweepTo(newN) {
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || "Server error");
 
-    sweepCache.set(cacheKey, data);
+    _sweepCacheSet(cacheKey, data);
     _applySweepResult(newN, data);
 
   } catch (err) {
@@ -986,6 +1032,7 @@ function restoreTheme() {
   document.getElementById("theme-toggle")?.addEventListener("click", () => {
     const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
     applyTheme(next);
+    if (renderer && treeRoot) renderer.setAnnotations(annotations);
   });
 }
 

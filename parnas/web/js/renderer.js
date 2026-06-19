@@ -7,8 +7,6 @@
  *   const r = new TreeRenderer(canvasEl);
  *   r.render(root, coords, annotations, opts);
  *   r.setAnnotations(annotations);   // re-style without re-layout
- *   r.resetView();
- *   r.zoom(factor);
  *   r.destroy();
  */
 
@@ -63,10 +61,6 @@ export class TreeRenderer {
     // id → paper.Item for click hit-testing
     this._hitNodes   = new Map();
     this._hitBranches = new Map();
-
-    // Callbacks set by app
-    this.onNodeClick   = null; // (nodeId, node, event) => void
-    this.onBranchClick = null; // (nodeId, node, event) => void
 
     // Smooth zoom: CSS scale accumulates during gesture, committed (paper re-raster) after settle
     this._cssScale    = 1;
@@ -130,52 +124,9 @@ export class TreeRenderer {
     this._p.view.update();
   }
 
-  resetView() {
-    this._p.activate();
-    // Cancel any pending CSS-scale/pan gesture
-    this._cssScale    = 1;
-    this._zoomOriginP = null;
-    this._cssPanX     = 0;
-    this._cssPanY     = 0;
-    this._canvas.style.transformOrigin = "center center";
-    this._applyTransform();
-    this._p.view.matrix = new this._p.Matrix();
-    this._p.view.update();
-  }
-
-  zoom(factor) {
-    // Accumulate CSS scale (cheap, GPU-composited) then commit to paper once settled
-    this._cssScale *= factor;
-    this._canvas.style.transformOrigin = "center center";
-    this._applyTransform();
-    this._commitZoom();
-  }
-
-  fitLabels() {
-    // Scale so the rightmost label edge touches canvas right edge
-    this.resetView();
-  }
-
   destroy() {
     this._p.project.clear();
     this._p.view.remove();
-  }
-
-  /** Export current view as PNG blob (offscreen scaled). */
-  exportPng(widthPx, heightPx, bgColor) {
-    return new Promise(resolve => {
-      const off = document.createElement("canvas");
-      off.width  = widthPx;
-      off.height = heightPx;
-      const ctx = off.getContext("2d");
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(0, 0, widthPx, heightPx);
-      ctx.drawImage(
-        this._canvas, 0, 0, this._canvas.width, this._canvas.height,
-        0, 0, widthPx, heightPx
-      );
-      off.toBlob(resolve, "image/png");
-    });
   }
 
   /** Export as SVG string via paper.js. */
@@ -654,6 +605,7 @@ export class TreeRenderer {
     let panning  = false;
     let startPt  = null; // for click-vs-drag detection
     let lastPt   = null;
+    let _rafPanId = null; // rAF handle for throttled transform write
 
     canvas.addEventListener("mousedown", e => {
       if (e.button !== 0) return;
@@ -670,21 +622,25 @@ export class TreeRenderer {
       // Accumulate CSS translate (GPU-composited, no paper redraw)
       this._cssPanX += dx;
       this._cssPanY += dy;
-      this._applyTransform();
+      // rAF-throttle: flush at most once per frame
+      if (!_rafPanId) _rafPanId = requestAnimationFrame(() => {
+        _rafPanId = null;
+        this._applyTransform();
+      });
     });
 
     window.addEventListener("mouseup", e => {
+      if (_rafPanId) { cancelAnimationFrame(_rafPanId); _rafPanId = null; }
       if (panning) {
         // Short drag = click; long drag = pan
         if (startPt) {
           const dx = Math.abs(e.clientX - startPt.x);
           const dy = Math.abs(e.clientY - startPt.y);
           if (dx + dy < 4) {
-            // Reset accumulated pan (no net movement) and treat as click
+            // Reset accumulated pan (no net movement) — click handling removed (no callbacks wired)
             this._cssPanX = 0;
             this._cssPanY = 0;
             this._applyTransform();
-            this._handleClick(e);
           } else {
             // Commit CSS translate into paper view (single re-raster)
             this._p.activate();
@@ -716,41 +672,4 @@ export class TreeRenderer {
     }, { passive: false });
   }
 
-  _handleClick(e) {
-    const p     = this._p;
-    const rect  = this._canvas.getBoundingClientRect();
-    const px    = e.clientX - rect.left;
-    const py    = e.clientY - rect.top;
-    const pt    = p.view.viewToProject(new p.Point(px, py));
-
-    // Hit-test node dots first (smaller, higher priority)
-    for (const [id, item] of this._hitNodes) {
-      if (item.contains && item.contains(pt)) {
-        const node = this._findNodeById(id);
-        if (this.onNodeClick) this.onNodeClick(id, node, e);
-        return;
-      }
-    }
-
-    // Hit-test branches (wider tolerance via bounds)
-    for (const [id, path] of this._hitBranches) {
-      if (path.hitTest && path.hitTest(pt, { stroke: true, tolerance: 5 })) {
-        const node = this._findNodeById(id);
-        if (this.onBranchClick) this.onBranchClick(id, node, e);
-        return;
-      }
-    }
-  }
-
-  _findNodeById(id) {
-    if (!this._root) return null;
-    let found = null;
-    const search = node => {
-      if (found) return;
-      if (node.id === id) { found = node; return; }
-      for (const c of node.children) search(c);
-    };
-    search(this._root);
-    return found;
-  }
 }

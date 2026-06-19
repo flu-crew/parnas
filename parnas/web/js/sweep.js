@@ -7,6 +7,7 @@ export class SweepChart {
     this._ctx    = canvas.getContext("2d");
     this._points = []; // [{n, diversity}]
     this._currentN = null;
+    this._rect   = null; // cached bounding rect; invalidated on resize
   }
 
   addPoint(n, diversity) {
@@ -21,14 +22,13 @@ export class SweepChart {
     this.draw();
   }
 
-  setCurrentN(n) {
-    this._currentN = n;
-    this.draw();
-  }
+  /** Call when the canvas is resized so the cached rect is re-measured on next draw. */
+  invalidateRect() { this._rect = null; }
 
   reset() {
     this._points = [];
     this._currentN = null;
+    this._rect = null;
     const ctx = this._ctx;
     ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
     this._canvas.style.display = "none";
@@ -41,7 +41,9 @@ export class SweepChart {
     const canvas = this._canvas;
     const ctx    = this._ctx;
     // Size backing buffer to displayed CSS box at device pixel ratio (prevents clipping/stretch)
-    const rect = canvas.getBoundingClientRect();
+    // Cache the rect — re-measure only when explicitly invalidated (resize)
+    if (!this._rect) this._rect = canvas.getBoundingClientRect();
+    const rect = this._rect;
     const dpr  = window.devicePixelRatio || 1;
     canvas.width  = Math.round(rect.width  * dpr);
     canvas.height = Math.round(rect.height * dpr);

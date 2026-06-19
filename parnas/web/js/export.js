@@ -112,37 +112,6 @@ export function downloadText(text, filename, mime = "text/plain") {
 }
 
 /**
- * Convert SVG string to PNG/JPG blob via off-screen canvas.
- * @param {string} svgStr
- * @param {number} width
- * @param {number} height
- * @param {string} bgColor
- * @param {"png"|"jpg"} fmt
- * @returns {Promise<Blob>}
- */
-export async function svgToRasterBlob(svgStr, width, height, bgColor, fmt = "png") {
-  const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
-  const url  = URL.createObjectURL(blob);
-
-  const canvas = document.createElement("canvas");
-  canvas.width  = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = bgColor;
-  ctx.fillRect(0, 0, width, height);
-
-  await new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload  = () => { ctx.drawImage(img, 0, 0, width, height); URL.revokeObjectURL(url); resolve(); };
-    img.onerror = e  => { URL.revokeObjectURL(url); reject(e); };
-    img.src = url;
-  });
-
-  const mime = fmt === "jpg" ? "image/jpeg" : "image/png";
-  return new Promise(resolve => canvas.toBlob(resolve, mime, 0.95));
-}
-
-/**
  * Build EPS from a canvas element.
  * Encodes the raster image as JPEG hex data inside PS.
  *

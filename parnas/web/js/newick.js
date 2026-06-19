@@ -136,26 +136,6 @@ export function parseNewick(newick) {
 }
 
 /**
- * Serialise a node tree back to Newick string.
- * Annotations are written as [&key=value,...] comments.
- */
-export function toNewick(node) {
-  let s = "";
-  if (node.children.length > 0) {
-    s += "(" + node.children.map(toNewick).join(",") + ")";
-  }
-  const annKeys = Object.keys(node.annotations || {});
-  if (annKeys.length > 0) {
-    const inner = annKeys.map(k => `${k}=${node.annotations[k]}`).join(",");
-    s += `[&${inner}]`;
-  }
-  if (node.name) s += node.name.includes(" ") ? `'${node.name}'` : node.name;
-  if (node.support !== null && node.support !== undefined) s += node.support;
-  if (node.length !== null && node.length !== undefined) s += `:${node.length}`;
-  return s;
-}
-
-/**
  * Serialise to NEXUS format, embedding per-leaf annotation blocks.
  * extraAnnotations: Map<leafName, {key: value}>
  */
