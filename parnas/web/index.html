@@ -58,19 +58,18 @@
     /* ── Header ──────────────────────────────────────────────── */
     .app-header {
       display: flex; align-items: center; gap: 1.25rem;
-      padding: 0.45rem 1.75rem;
+      padding: 0.9rem 1.75rem;
       background: var(--bg-surface);
       border-bottom: 1px solid var(--border);
     }
     .header-icon { width: 34px; height: 34px; flex-shrink: 0; }
-    .app-titlewrap { display: flex; align-items: baseline; gap: 0.6rem; }
     .app-title {
-      font-family: "Bebas Neue", sans-serif; font-size: 1.6rem;
+      font-family: "Bebas Neue", sans-serif; font-size: 2.2rem;
       letter-spacing: 0.12em; color: var(--accent); line-height: 1; margin: 0;
     }
     .app-tagline {
       font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.18em;
-      color: var(--text-muted); margin: 0;
+      color: var(--text-muted); margin: 0; padding-top: 0.2rem;
     }
     .gh-link {
       margin-left: auto;
@@ -500,8 +499,8 @@
       <circle cx="31" cy="26" r="2" fill="#00e5c8"/>
       <circle cx="17" cy="4"  r="2" fill="#00e5c8"/>
     </svg>
-    <div class="app-titlewrap">
-      <h2 class="app-title">PARNAS</h2>
+    <div>
+      <h1 class="app-title">PARNAS</h1>
       <p class="app-tagline">Phylogenetic mAximum RepreseNtAtion Sampling</p>
     </div>
     <a class="gh-link" href="https://github.com/flu-crew/parnas" target="_blank" rel="noopener" aria-label="GitHub repository">
