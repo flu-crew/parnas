@@ -48,7 +48,7 @@ def _match_taxa(tree: Tree, regex: str):
         return []
     try:
         regex_compiled = re.compile(regex)
-        return [t.label for t in tree.taxon_namespace if regex_compiled.fullmatch(t.label)]
+        return [t.label for t in tree.taxon_namespace if regex_compiled.match(t.label)]
     except re.error as exc:
         raise ValueError(f"Invalid regex '{regex}': {exc}") from exc
 
@@ -164,12 +164,15 @@ def run_parnas():
     exc_full_regex  = request.form.get("exclude_fully",   "").strip()
     constrain_regex = request.form.get("constrain_fully", "").strip()
 
+    # ── Sweep mode ────────────────────────────────────────────
+    sweep = request.form.get("sweep", "none").strip()  # "none" | "n" | "threshold"
+
     # ── Numeric params ────────────────────────────────────────
     radius_str    = request.form.get("radius",    "").strip()
     threshold_str = request.form.get("threshold", "").strip()
 
     n = -1
-    if not cover and not evaluate:
+    if not cover and not evaluate and sweep != "threshold":
         try:
             n = int(request.form.get("n", ""))
         except (ValueError, TypeError):
@@ -193,7 +196,7 @@ def run_parnas():
         except ValueError:
             return jsonify({"error": "Threshold must be a valid number"}), 400
 
-    if cover and radius is None and threshold is None:
+    if cover and radius is None and threshold is None and sweep != "threshold":
         return jsonify({"error": "--cover requires --radius or --threshold"}), 400
 
     # ── Temp file management ──────────────────────────────────
@@ -222,7 +225,7 @@ def run_parnas():
             return jsonify({"error": f"Cannot parse tree file: {last_err}"}), 400
 
         n_taxa = len(tree.taxon_namespace)
-        if not cover and not evaluate and (n < 1 or n >= n_taxa):
+        if not cover and not evaluate and sweep != "threshold" and (n < 1 or n >= n_taxa):
             return jsonify({
                 "error": f"n must be between 1 and {n_taxa - 1} (tree has {n_taxa} taxa)"
             }), 400
@@ -257,18 +260,22 @@ def run_parnas():
 
         # ── Threshold / tree re-weighting ─────────────────────
         query_tree = tree
-        if threshold is not None:
+        aln_len    = None   # set when alignment loaded (needed for threshold sweep)
+        a_path_aln = None   # reused by threshold sweep loop
+        if threshold is not None or sweep == "threshold":
             aln_type = request.form.get("aln_type", "nt")
             aln_file = request.files.get("alignment")
             if not aln_file or not aln_file.filename:
                 return jsonify({"error": "--threshold requires an alignment file"}), 400
             is_aa  = aln_type == "aa"
-            a_path = save_upload(aln_file, os.path.splitext(aln_file.filename)[1] or ".fasta")
+            a_path_aln = save_upload(aln_file, os.path.splitext(aln_file.filename)[1] or ".fasta")
             try:
                 from Bio import AlignIO
-                alignment  = list(AlignIO.read(a_path, "fasta"))
-                radius     = floor((1 - threshold / 100) * len(alignment[0]))
-                query_tree = reweigh_tree_ancestral(tree_path, a_path, is_aa)
+                alignment  = list(AlignIO.read(a_path_aln, "fasta"))
+                aln_len    = len(alignment[0])
+                if threshold is not None:
+                    radius = floor((1 - threshold / 100) * aln_len)
+                query_tree = reweigh_tree_ancestral(tree_path, a_path_aln, is_aa)
             except Exception as exc:
                 return jsonify({"error": f"Threshold/TreeTime error: {exc}"}), 400
 
@@ -276,6 +283,31 @@ def run_parnas():
         binarize_tree(query_tree, edge_length=0)
         cost_map           = get_costs(query_tree, excluded_taxa, fully_excluded)
         fully_excluded_all = list(set(fully_excluded) | set(obj_excluded))
+
+        # ── Threshold sweep ───────────────────────────────────
+        if sweep == "threshold":
+            if aln_len is None:
+                return jsonify({"error": "Threshold sweep requires an alignment file"}), 400
+            try:
+                t_min  = float(request.form.get("threshold_min", "80"))
+                t_max  = float(request.form.get("threshold_max", "99"))
+                steps  = max(2, int(request.form.get("threshold_steps", "20")))
+            except (ValueError, TypeError):
+                return jsonify({"error": "threshold_min/max must be numbers"}), 400
+            if t_min >= t_max:
+                return jsonify({"error": "threshold_min must be less than threshold_max"}), 400
+            if t_min <= 0 or t_max >= 100:
+                return jsonify({"error": "Threshold values must be between 0 and 100 (exclusive)"}), 400
+            thresholds = [t_min + (t_max - t_min) * i / (steps - 1) for i in range(steps)]
+            curve = []
+            for t in thresholds:
+                r   = floor((1 - t / 100) * aln_len)
+                cov = find_coverage(
+                    query_tree, r, cost_map, prior_centers, fully_excluded, obj_excluded
+                )
+                reps_t = len(cov) if cov is not None else n_taxa
+                curve.append({"threshold": round(t, 3), "reps": reps_t})
+            return jsonify({"mode": "sweep_threshold", "threshold_curve": curve, "n_taxa": n_taxa})
 
         # ── Evaluate mode ─────────────────────────────────────
         if evaluate:
@@ -399,6 +431,7 @@ def run_parnas():
             "clusters":        clusters,
             "tree":            _newick(query_tree),
             "diversity":       float(diversity_scores[-1]) if diversity_scores else None,
+            "diversity_curve": [float(s) for s in diversity_scores] if diversity_scores else None,
             "n_taxa":          n_taxa,
         })
 

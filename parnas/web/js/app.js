@@ -56,6 +56,7 @@ let resizeObs   = null;
 let sweepChart  = null;
 let sweepAbort  = null;
 let currentSweepN = 1;
+let lastNTaxa   = null; // from most recent /api/run response
 /** Session-only memo cache: param-key → /api/run response. Not serialized in export. */
 const sweepCache = new Map();
 const SWEEP_CACHE_MAX = 20;
@@ -129,6 +130,9 @@ function init() {
   wireFilePickers();
   wireDependentFields();
   wireSweepBar();
+  wireElbowBar();
+  wireSweepToggles();
+  wireSweepExport();
   restoreTheme();
 }
 
@@ -139,6 +143,16 @@ let currentAbort = null;
 function wireRunButton() {
   runBtn.addEventListener("click", async () => {
     if (currentAbort) { currentAbort.abort(); return; }
+
+    // Delegate to sweep modes when active
+    if (document.getElementById("sweep-n-cb")?.checked) {
+      await runNSweep();
+      return;
+    }
+    if (document.getElementById("sweep-thr-cb")?.checked) {
+      await runThresholdSweep();
+      return;
+    }
 
     if (!treeFile) {
       showOverlay("error", "⚠️", "Please upload a tree file first.");
@@ -209,6 +223,7 @@ function wireRunButton() {
       const divText = cached.diversity != null ? cached.diversity.toFixed(2) + "% diversity" : "";
       document.getElementById("sweep-diversity-display").textContent = divText;
       if (sweepChart) { sweepChart.reset(); sweepChart.addPoint(currentSweepN, cached.diversity); }
+      if (cached.n_taxa != null) lastNTaxa = cached.n_taxa;
       currentAbort = null;
       runBtn.removeAttribute("aria-busy");
       runBtn.textContent = "Run Analysis";
@@ -283,6 +298,7 @@ function wireRunButton() {
           sweepChart.reset();
           sweepChart.addPoint(currentSweepN, data.diversity);
         }
+        if (data.n_taxa != null) lastNTaxa = data.n_taxa;
       }
 
     } catch (err) {
@@ -664,18 +680,10 @@ function _applySweepResult(newN, data) {
   renderSampleReps(data);
 }
 
-async function sweepTo(newN) {
-  if (!treeFile || !treeRoot) return;
-  if (newN < 1) return;
-  // Cover mode: n is irrelevant
-  if (document.getElementById("cover-cb")?.checked) return;
-
-  currentSweepN = newN;
-  document.getElementById("sweep-n-val").textContent = newN;
-
-  // Build param key for memoization (all fields that affect the result)
-  const cacheKey = JSON.stringify({
-    n:               newN,
+/** Build the FormData + cacheKey for a sample-mode request at a given n. */
+function _buildSampleRequest(n) {
+  const params = {
+    n,
     binary:          document.getElementById("binary-cb").checked,
     prior:           document.getElementById("prior-input").value.trim(),
     radius:          document.getElementById("radius-input").value.trim(),
@@ -685,7 +693,35 @@ async function sweepTo(newN) {
     exclude_fully:   document.getElementById("exc-full").value.trim(),
     constrain_fully: document.getElementById("constrain").value.trim(),
     weightsKey:      weightsFile ? `${weightsFile.name}:${weightsFile.size}` : null,
-  });
+  };
+  const cacheKey = JSON.stringify(params);
+  const fd = new FormData();
+  fd.append("tree",            treeFile);
+  fd.append("n",               n);
+  fd.append("cover",           "false");
+  fd.append("evaluate",        "false");
+  fd.append("binary",          params.binary ? "true" : "false");
+  fd.append("prior",           params.prior);
+  fd.append("radius",          params.radius);
+  fd.append("threshold",       params.threshold);
+  fd.append("exclude_rep",     params.exclude_rep);
+  fd.append("exclude_obj",     params.exclude_obj);
+  fd.append("exclude_fully",   params.exclude_fully);
+  fd.append("constrain_fully", params.constrain_fully);
+  if (weightsFile) fd.append("weights", weightsFile);
+  return { fd, cacheKey };
+}
+
+async function sweepTo(newN) {
+  if (!treeFile || !treeRoot) return;
+  if (newN < 1) return;
+  // Cover mode: n is irrelevant
+  if (document.getElementById("cover-cb")?.checked) return;
+
+  currentSweepN = newN;
+  document.getElementById("sweep-n-val").textContent = newN;
+
+  const { fd, cacheKey } = _buildSampleRequest(newN);
 
   if (sweepCache.has(cacheKey)) {
     _applySweepResult(newN, sweepCache.get(cacheKey));
@@ -697,21 +733,6 @@ async function sweepTo(newN) {
   sweepAbort = new AbortController();
 
   document.getElementById("sweep-diversity-display").textContent = "…";
-
-  const fd = new FormData();
-  fd.append("tree",            treeFile);
-  fd.append("n",               newN);
-  fd.append("cover",           "false");
-  fd.append("evaluate",        "false");
-  fd.append("binary",          document.getElementById("binary-cb").checked ? "true" : "false");
-  fd.append("prior",           document.getElementById("prior-input").value.trim());
-  fd.append("radius",          document.getElementById("radius-input").value.trim());
-  fd.append("threshold",       document.getElementById("threshold-input").value.trim());
-  fd.append("exclude_rep",     document.getElementById("exc-rep").value.trim());
-  fd.append("exclude_obj",     document.getElementById("exc-obj").value.trim());
-  fd.append("exclude_fully",   document.getElementById("exc-full").value.trim());
-  fd.append("constrain_fully", document.getElementById("constrain").value.trim());
-  if (weightsFile) fd.append("weights", weightsFile);
 
   try {
     const resp = await fetch("/api/run", {
@@ -729,6 +750,266 @@ async function sweepTo(newN) {
       console.error("Sweep failed:", err);
     }
   }
+}
+
+// ── Elbow sweep ──────────────────────────────────────────────────────────────
+
+/**
+ * Kneedle / max-triangle elbow detection on a concave-increasing diversity curve.
+ * points: [{n, diversity}] sorted ascending by n.
+ * Returns the n at the elbow, or null when there are too few points.
+ */
+/**
+ * Generic elbow detector: max perpendicular distance from chord first→last.
+ * Works for {x,y} points regardless of curve direction.
+ * @param {Array<{x:number,y:number}>} points
+ * @returns {number|null} x-value at the elbow
+ */
+function findElbow(points) {
+  if (!points || points.length < 3) return points?.length ? points[points.length - 1].x : null;
+  const first = points[0], last = points[points.length - 1];
+  const dx = last.x - first.x, dy = last.y - first.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len === 0) return first.x;
+  const a = dy / len, b = -dx / len;
+  const c = -(a * first.x + b * first.y);
+  let maxDist = -Infinity, elbowX = null;
+  for (const p of points) {
+    const dist = Math.abs(a * p.x + b * p.y + c);
+    if (dist > maxDist) { maxDist = dist; elbowX = p.x; }
+  }
+  return elbowX;
+}
+// Legacy shim kept for backward compat with sweepTo path
+function findElbowN(legacyPoints) {
+  if (!legacyPoints) return null;
+  return findElbow(legacyPoints.map(p => ({ x: p.n, y: p.diversity })));
+}
+
+// ── Sweep mode toggles ────────────────────────────────────────────────────
+
+function wireSweepToggles() {
+  const sweepNCb  = document.getElementById("sweep-n-cb");
+  const sweepThrCb = document.getElementById("sweep-thr-cb");
+  const sweepNRange  = document.getElementById("sweep-n-range");
+  const sweepThrRange = document.getElementById("sweep-thr-range");
+
+  function onSweepNChange() {
+    if (sweepNCb?.checked && sweepThrCb) sweepThrCb.checked = false;
+    if (sweepNRange) sweepNRange.style.display = sweepNCb?.checked ? "" : "none";
+    if (sweepThrRange) sweepThrRange.style.display = "none";
+    // Trigger alignment-section visibility update
+    wireDependentFieldsUpdate();
+  }
+  function onSweepThrChange() {
+    if (sweepThrCb?.checked && sweepNCb) sweepNCb.checked = false;
+    if (sweepThrRange) sweepThrRange.style.display = sweepThrCb?.checked ? "" : "none";
+    if (sweepNRange) sweepNRange.style.display = "none";
+    // Show alignment section since threshold sweep always needs it
+    const alnSection = document.getElementById("alignment-section");
+    if (alnSection && sweepThrCb?.checked) alnSection.style.display = "block";
+    wireDependentFieldsUpdate();
+  }
+
+  sweepNCb?.addEventListener("change",  onSweepNChange);
+  sweepThrCb?.addEventListener("change", onSweepThrChange);
+}
+
+// External hook so wireSweepToggles can call wireDependentFields update logic
+let wireDependentFieldsUpdate = () => {};
+
+function wireElbowBar() {
+  // No-op: elbow sweep now triggered via Run Analysis button
+}
+
+// ── n sweep (run via Run Analysis when sweep-n-cb is checked) ─────────────
+
+async function runNSweep() {
+  if (!treeFile) {
+    showOverlay("error", "⚠️", "Upload a tree file first.");
+    return;
+  }
+
+  let nMin = parseInt(document.getElementById("elbow-min")?.value, 10) || 2;
+  let nMax = parseInt(document.getElementById("elbow-max")?.value, 10) || 20;
+  nMin = Math.max(2, nMin);
+  if (lastNTaxa != null) nMax = Math.min(nMax, lastNTaxa - 1);
+  if (nMin >= nMax) {
+    showOverlay("error", "⚠️", "From n must be less than To n (and ≥ 2).");
+    return;
+  }
+
+  showOverlay("loading", "⏳", "Running n sweep…");
+  runBtn.setAttribute("aria-busy", "true");
+  runBtn.textContent = "Cancel";
+  currentAbort = new AbortController();
+
+  try {
+    // One request at nMax — server returns diversity_curve[k-2] for k=2..nMax
+    const { fd, cacheKey } = _buildSampleRequest(nMax);
+    let data;
+    if (sweepCache.has(cacheKey)) {
+      data = sweepCache.get(cacheKey);
+    } else {
+      const resp = await fetch("/api/run", { method: "POST", body: fd, signal: currentAbort.signal });
+      data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Server error");
+      _sweepCacheSet(cacheKey, data);
+    }
+    if (data.n_taxa != null) lastNTaxa = data.n_taxa;
+    if (!treeRoot && data.tree) treeRoot = parseNewick(data.tree);
+
+    const curve = data.diversity_curve || [];
+    const points = [];
+    for (let k = nMin; k <= nMax; k++) {
+      const val = curve[k - 2];
+      if (val != null) points.push({ x: k, y: val });
+    }
+    if (points.length === 0) throw new Error("No diversity data in that n range.");
+
+    const elbowX = findElbow(points);
+
+    // Show figure — activate tab FIRST so canvas has real dimensions when drawn
+    const figSection = document.getElementById("sweep-figure-section");
+    if (figSection) figSection.style.display = "";
+    const sweepSection = document.getElementById("sweep-section");
+    if (sweepSection) sweepSection.style.display = "";
+    window._activateSidebarTab?.("results");
+    if (sweepChart) {
+      sweepChart.invalidateRect();
+      sweepChart.setSeries(points, {
+        title:  "Diversity vs. number of representatives",
+        xTitle: "Number of representatives (n)",
+        yTitle: "Diversity covered (%)",
+        xFmt:   v => String(Math.round(v)),
+        yFmt:   v => v.toFixed(1) + "%",
+      });
+      sweepChart.setElbow(elbowX);
+    }
+    const caption = document.getElementById("sweep-caption");
+    if (caption) caption.textContent = elbowX != null ? `Elbow at n = ${elbowX}` : "";
+
+    // Auto-select elbow n and re-render tree
+    if (elbowX != null) {
+      const nInput = document.getElementById("n-input");
+      if (nInput) nInput.value = elbowX;
+      await sweepTo(elbowX);
+    }
+    showOverlay("hidden");
+  } catch (err) {
+    if (err.name !== "AbortError") showOverlay("error", "⚠️", err.message);
+  } finally {
+    currentAbort = null;
+    runBtn.removeAttribute("aria-busy");
+    runBtn.textContent = "Run Analysis";
+  }
+}
+
+// ── Threshold sweep (run via Run Analysis when sweep-thr-cb is checked) ───
+
+async function runThresholdSweep() {
+  if (!treeFile) {
+    showOverlay("error", "⚠️", "Upload a tree file first.");
+    return;
+  }
+  if (!alnFile) {
+    showOverlay("error", "⚠️", "Threshold sweep requires an alignment FASTA file.");
+    return;
+  }
+
+  const thrMin = parseFloat(document.getElementById("thr-min")?.value);
+  const thrMax = parseFloat(document.getElementById("thr-max")?.value);
+  if (isNaN(thrMin) || isNaN(thrMax) || thrMin >= thrMax) {
+    showOverlay("error", "⚠️", "From % must be less than To % for the threshold sweep.");
+    return;
+  }
+  if (thrMin <= 0 || thrMax >= 100) {
+    showOverlay("error", "⚠️", "Threshold values must be between 0 and 100 (exclusive).");
+    return;
+  }
+
+  showOverlay("loading", "⏳", "Running threshold sweep…");
+  runBtn.setAttribute("aria-busy", "true");
+  runBtn.textContent = "Cancel";
+  currentAbort = new AbortController();
+
+  try {
+    const fd = new FormData();
+    fd.append("tree",            treeFile);
+    fd.append("sweep",           "threshold");
+    fd.append("threshold_min",   thrMin);
+    fd.append("threshold_max",   thrMax);
+    fd.append("threshold_steps", "20");
+    fd.append("aln_type", document.querySelector("input[name='aln-type']:checked")?.value || "nt");
+    fd.append("alignment", alnFile);
+    fd.append("prior",           document.getElementById("prior-input")?.value.trim() || "");
+    fd.append("exclude_rep",     document.getElementById("exc-rep")?.value.trim()     || "");
+    fd.append("exclude_obj",     document.getElementById("exc-obj")?.value.trim()     || "");
+    fd.append("exclude_fully",   document.getElementById("exc-full")?.value.trim()    || "");
+    fd.append("constrain_fully", document.getElementById("constrain")?.value.trim()   || "");
+    if (weightsFile) fd.append("weights", weightsFile);
+
+    const resp = await fetch("/api/run", { method: "POST", body: fd, signal: currentAbort.signal });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || "Server error");
+    if (data.n_taxa != null) lastNTaxa = data.n_taxa;
+
+    const curve = data.threshold_curve || [];
+    if (curve.length === 0) throw new Error("No threshold curve data returned.");
+    // Detect elbow on natural orientation (threshold→reps), then display swapped (reps→threshold)
+    const elbowThreshold = findElbow(curve.map(pt => ({ x: pt.threshold, y: pt.reps })));
+    const points = curve.map(pt => ({ x: pt.reps, y: pt.threshold }));
+
+    // Show figure — activate tab FIRST so canvas has real dimensions when drawn
+    const figSection = document.getElementById("sweep-figure-section");
+    if (figSection) figSection.style.display = "";
+    window._activateSidebarTab?.("results");
+    if (sweepChart) {
+      sweepChart.invalidateRect();
+      sweepChart.setSeries(points, {
+        title:  "Similarity threshold vs. representatives needed",
+        xTitle: "Representatives to cover all taxa",
+        yTitle: "Similarity threshold (%)",
+        xFmt:   v => String(Math.round(v)),
+        yFmt:   v => v.toFixed(1) + "%",
+      });
+      sweepChart.setElbow(elbowThreshold, { axis: "y" });
+    }
+    const caption = document.getElementById("sweep-caption");
+    if (caption) caption.textContent = elbowThreshold != null ? `Elbow at threshold = ${elbowThreshold.toFixed(1)}%` : "";
+
+    // Auto-select: set threshold, uncheck sweep, check cover, run cover
+    if (elbowThreshold != null) {
+      const thrInput = document.getElementById("threshold-input");
+      if (thrInput) thrInput.value = elbowThreshold.toFixed(1);
+      const sweepThrCb = document.getElementById("sweep-thr-cb");
+      if (sweepThrCb) { sweepThrCb.checked = false; wireDependentFieldsUpdate(); }
+      const coverCb = document.getElementById("cover-cb");
+      if (coverCb) coverCb.checked = true;
+      // Re-trigger cover run at elbow threshold (will re-enter wireRunButton handler)
+      // Defer so this sweep's finally block cleans up first
+      setTimeout(() => runBtn.click(), 0);
+    }
+
+    showOverlay("hidden");
+  } catch (err) {
+    if (err.name !== "AbortError") showOverlay("error", "⚠️", err.message);
+  } finally {
+    currentAbort = null;
+    runBtn.removeAttribute("aria-busy");
+    runBtn.textContent = "Run Analysis";
+  }
+}
+
+// ── Sweep figure export ────────────────────────────────────────────────────
+
+function wireSweepExport() {
+  document.getElementById("sweep-export-btn")?.addEventListener("click", () => {
+    if (!sweepChart) return;
+    const fmt  = document.getElementById("sweep-export-fmt")?.value || "png";
+    const themeVal = document.getElementById("sweep-export-theme")?.value || "light";
+    sweepChart.exportFigure(fmt, { dark: themeVal !== "light" });
+  });
 }
 
 // ── Export ───────────────────────────────────────────────────────────────────
@@ -1001,22 +1282,41 @@ function wireDependentFields() {
   const coverRow       = document.getElementById("cover-row");
   const nInput         = document.getElementById("n-input");
   const nRow           = document.getElementById("n-row");
+  const sweepNRow      = document.getElementById("sweep-n-row");
   const alnSection     = document.getElementById("alignment-section");
 
   function update() {
+    const sweepN   = document.getElementById("sweep-n-cb")?.checked;
+    const sweepThr = document.getElementById("sweep-thr-cb")?.checked;
+
     const radiusOk = parseFloat(radiusInput.value) > 0;
-    const coverOk  = radiusOk || parseFloat(thresholdInput.value) > 0;
+    const thrVal   = parseFloat(thresholdInput.value);
+    const coverOk  = radiusOk || thrVal > 0 || sweepThr;
     binaryCb.disabled = !radiusOk;
     binaryRow.classList.toggle("dimmed", !radiusOk);
     if (!radiusOk) binaryCb.checked = false;
     coverCb.disabled = !coverOk;
     coverRow.classList.toggle("dimmed", !coverOk);
     if (!coverOk) coverCb.checked = false;
-    const covered = coverCb.checked;
-    nInput.disabled    = covered;
-    nRow.style.opacity = covered ? "0.45" : "1";
-    alnSection.style.display = parseFloat(thresholdInput.value) > 0 ? "block" : "none";
+
+    // Grey out n when covered OR n-sweep active
+    const nLocked = coverCb.checked || sweepN;
+    nInput.disabled    = nLocked;
+    nRow.style.opacity = nLocked ? "0.45" : "1";
+    if (sweepNRow) sweepNRow.style.opacity = coverCb.checked ? "0.45" : "1";
+
+    // Grey out threshold input when threshold-sweep active
+    if (thresholdInput) {
+      thresholdInput.disabled    = !!sweepThr;
+      thresholdInput.style.opacity = sweepThr ? "0.45" : "1";
+    }
+
+    // Show alignment section if threshold has a value OR threshold-sweep is active
+    alnSection.style.display = (thrVal > 0 || sweepThr) ? "block" : "none";
   }
+
+  // Expose update so wireSweepToggles can call it
+  wireDependentFieldsUpdate = update;
 
   radiusInput?.addEventListener("input",    update);
   thresholdInput?.addEventListener("input", update);

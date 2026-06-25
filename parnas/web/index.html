@@ -233,7 +233,10 @@
     }
     #run-btn[aria-busy="true"] { pointer-events: none; }
 
-    #sweep-chart { border-radius: 4px; background: var(--bg); width: 100%; height: 80px; }
+    #sweep-chart { border-radius: 4px; background: var(--pico-card-background-color, #fff); width: 100%; height: 200px; }
+    .sweep-export-row { display:flex; flex-direction:column; gap:.4rem; margin-top:.5rem; }
+    .sweep-export-row select { width:100%; margin:0; }
+    .sweep-export-row button { width:100%; margin:0; padding:.35rem .8rem; font-size:.85rem; }
 
     .diversity-pill {
       display: inline-flex; align-items: center; gap: 0.4rem;
@@ -571,6 +574,23 @@
         <input type="number" id="n-input" value="5" min="1" step="1" placeholder="e.g. 5" data-tooltip="Number of representative taxa to select from the tree" data-placement="top"/>
       </div>
 
+      <label class="switch-row" id="sweep-n-row" data-tooltip="Sweep n from min to max and auto-detect the elbow; Run Analysis triggers the sweep" data-placement="top">
+        <input type="checkbox" id="sweep-n-cb" role="switch"/>
+        <span>Sweep n &amp; find elbow <small>overrides n</small></span>
+      </label>
+      <div id="sweep-n-range" style="display:none;padding:0.2rem 0 0.4rem">
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <div style="flex:1">
+            <label class="field-label small" for="elbow-min">From n</label>
+            <input type="number" id="elbow-min" value="2" min="2" step="1" data-tooltip="Start of n range for elbow sweep" data-placement="top"/>
+          </div>
+          <div style="flex:1">
+            <label class="field-label small" for="elbow-max">To n</label>
+            <input type="number" id="elbow-max" value="20" min="2" step="1" data-tooltip="End of n range for elbow sweep" data-placement="top"/>
+          </div>
+        </div>
+      </div>
+
       <label class="switch-row" id="cover-row" data-tooltip="Find the minimum number of representatives to cover all taxa within the given radius (requires Radius)" data-placement="top">
         <input type="checkbox" id="cover-cb" role="switch"/>
         <span>Find minimum cover <small>overrides n</small></span>
@@ -634,6 +654,25 @@
           Similarity threshold <small>% (0–100)</small> <a class="param-help" href="https://github.com/flu-crew/parnas#specifying-a-coverage-radius" target="_blank" rel="noopener" aria-label="Documentation">?</a>
         </label>
         <input type="number" id="threshold-input" step="0.1" min="0.1" max="99.9" placeholder="e.g. 95" data-tooltip="Sequence similarity threshold (0–100) used to re-scale tree edges based on substitutions; substitute for Radius" data-placement="top"/>
+
+        <label class="switch-row" id="sweep-thr-row" style="margin-top:0.5rem" data-tooltip="Sweep the similarity threshold and find the elbow (min reps vs threshold). Requires alignment. Run Analysis triggers the sweep." data-placement="top">
+          <input type="checkbox" id="sweep-thr-cb" role="switch"/>
+          <span>Sweep threshold &amp; find elbow <small>overrides threshold</small></span>
+        </label>
+        <div id="sweep-thr-range" style="display:none;padding:0.2rem 0 0.4rem">
+          <div style="display:flex;gap:0.5rem;align-items:center">
+            <div style="flex:1">
+              <label class="field-label small" for="thr-min">From %</label>
+              <input type="number" id="thr-min" value="80" min="0.1" max="99.9" step="0.5" data-tooltip="Start similarity threshold for sweep" data-placement="top"/>
+            </div>
+            <div style="flex:1">
+              <label class="field-label small" for="thr-max">To %</label>
+              <input type="number" id="thr-max" value="99" min="0.1" max="99.9" step="0.5" data-tooltip="End similarity threshold for sweep" data-placement="top"/>
+            </div>
+          </div>
+          <p style="font-size:0.75rem;opacity:0.65;margin:0.25rem 0 0">Requires an alignment file below.</p>
+        </div>
+
         <div id="alignment-section" style="display:none">
           <label class="field-label">Sequence type</label>
           <div class="radio-row">
@@ -671,7 +710,26 @@
                 <button id="sweep-inc" class="toggle-btn" aria-label="Increase n">+</button>
                 <span id="sweep-diversity-display" class="sweep-div"></span>
               </div>
-              <canvas id="sweep-chart" style="display:none;"></canvas>
+            </div>
+          </div>
+          <!-- Sweep figure (n-sweep or threshold-sweep) -->
+          <div id="sweep-figure-section" style="display:none">
+            <p class="section-label" style="margin-top:0.5rem">Sweep Figure <button class="collapse-btn" data-target="sweep-figure-fields" aria-label="Toggle sweep figure">▾</button></p>
+            <div id="sweep-figure-fields" class="collapsible">
+              <canvas id="sweep-chart"></canvas>
+              <span id="sweep-caption" class="sweep-div" style="display:block;margin-top:0.25rem"></span>
+              <div class="sweep-export-row">
+                <select id="sweep-export-fmt" aria-label="Export format">
+                  <option value="png">PNG</option>
+                  <option value="svg">SVG</option>
+                  <option value="eps">EPS</option>
+                </select>
+                <select id="sweep-export-theme" aria-label="Export theme">
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+                <button id="sweep-export-btn" class="secondary">Export figure</button>
+              </div>
             </div>
           </div>
           <p class="section-label" id="rep-label">Representatives</p>
