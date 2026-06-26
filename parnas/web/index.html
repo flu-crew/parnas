@@ -100,7 +100,7 @@
     /* ── Layout ──────────────────────────────────────────────── */
     .app-body {
       display: grid;
-      grid-template-columns: 360px 1fr;
+      grid-template-columns: 420px 1fr;
       grid-template-rows: minmax(0, 1fr);
       overflow: hidden;
       min-height: 0;
@@ -226,14 +226,28 @@
     }
     .radio-row input[type="radio"] { margin: 0; }
 
+    /* ── Params panel scrolls; run button stays below ─────────── */
+    #params-panel { flex: 1; overflow-y: auto; min-height: 0; }
     /* ── Run button ──────────────────────────────────────────── */
     #run-btn {
       font-family: "Bebas Neue", sans-serif; font-size: 1.1rem;
-      letter-spacing: 0.12em; width: 100%; margin-top: 0.8rem;
+      letter-spacing: 0.12em; width: 100%; margin-top: 0;
+      flex-shrink: 0;
+      border-radius: 0;
+      padding: 0.7rem 1.1rem;
     }
     #run-btn[aria-busy="true"] { pointer-events: none; }
 
-    #sweep-chart { border-radius: 4px; background: var(--pico-card-background-color, #fff); width: 100%; height: 200px; }
+    #sweep-chart { border-radius: 4px; background: var(--pico-card-background-color, #fff); width: 100%; height: 280px; }
+    .sweep-chart-wrap { position: relative; }
+    #sweep-tooltip {
+      position: absolute; pointer-events: none; display: none;
+      background: rgba(30,30,30,0.88); color: #fff;
+      font-size: 0.78rem; padding: 4px 8px; border-radius: 5px;
+      white-space: nowrap; z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      transform: translate(-50%, calc(-100% - 8px));
+    }
     .sweep-export-row { display:flex; flex-direction:column; gap:.4rem; margin-top:.5rem; }
     .sweep-export-row select { width:100%; margin:0; }
     .sweep-export-row button { width:100%; margin:0; padding:.35rem .8rem; font-size:.85rem; }
@@ -355,8 +369,10 @@
     #export-dialog {
       background: var(--bg-surface); color: inherit;
       border: 1px solid var(--border); border-radius: 12px;
-      padding: 0; width: 500px;
+      padding: 0; width: 400px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+      position: fixed; top: 3.5rem; right: 1rem; z-index: 9000;
+      margin: 0;
     }
     #export-dialog::backdrop {
       background: rgba(0,0,0,0.55); backdrop-filter: blur(3px);
@@ -553,6 +569,7 @@
 
       <!-- Parameters panel -->
       <div id="tab-params" class="sb-panel active">
+      <div id="params-panel">
 
       <!-- Tree upload -->
       <p class="section-label">Input Tree <button class="collapse-btn" id="toggle-input" data-target="input-fields" aria-label="Toggle input tree">▾</button></p>
@@ -688,7 +705,9 @@
         </div>
       </div><!-- /#seqdiv-fields -->
 
-      <!-- Run -->
+      </div><!-- /#params-panel -->
+
+      <!-- Run — fixed below scrollable params -->
       <button id="run-btn" type="button">Run Analysis</button>
 
       </div><!-- /#tab-params -->
@@ -716,13 +735,17 @@
           <div id="sweep-figure-section" style="display:none">
             <p class="section-label" style="margin-top:0.5rem">Sweep Figure <button class="collapse-btn" data-target="sweep-figure-fields" aria-label="Toggle sweep figure">▾</button></p>
             <div id="sweep-figure-fields" class="collapsible">
-              <canvas id="sweep-chart"></canvas>
+              <div class="sweep-chart-wrap">
+                <canvas id="sweep-chart"></canvas>
+                <div id="sweep-tooltip"></div>
+              </div>
               <span id="sweep-caption" class="sweep-div" style="display:block;margin-top:0.25rem"></span>
               <div class="sweep-export-row">
                 <select id="sweep-export-fmt" aria-label="Export format">
                   <option value="png">PNG</option>
                   <option value="svg">SVG</option>
                   <option value="eps">EPS</option>
+                  <option value="csv">CSV</option>
                 </select>
                 <select id="sweep-export-theme" aria-label="Export theme">
                   <option value="light">Light</option>
@@ -732,8 +755,13 @@
               </div>
             </div>
           </div>
-          <p class="section-label" id="rep-label">Representatives</p>
-          <ul class="rep-list" id="rep-list"></ul>
+          <p class="section-label"><span id="rep-label">Representatives</span> <button class="collapse-btn" data-target="rep-fields" aria-label="Toggle representatives">▾</button></p>
+          <div id="rep-fields" class="collapsible">
+            <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:0.35rem">
+              <button id="rep-export-btn" class="secondary" style="width:auto;padding:.3rem .8rem;font-size:.82rem;margin:0">Export TXT</button>
+            </div>
+            <ul class="rep-list" id="rep-list"></ul>
+          </div>
         </div>
 
         <!-- Evaluate mode results -->
@@ -761,6 +789,7 @@
         <span class="viz-title">Phylogenetic Tree</span>
         <span class="viz-spacer"></span>
         <button id="layout-toggle" class="toolbar-btn" style="display:none" aria-label="Toggle layout mode">Cladogram</button>
+        <button id="reset-view-btn" class="toolbar-btn" style="display:none" aria-label="Reset tree view" title="Reset view">⟳</button>
         <button id="export-btn" class="toolbar-btn" style="display:none" aria-label="Export tree image">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>

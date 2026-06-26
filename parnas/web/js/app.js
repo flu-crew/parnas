@@ -57,6 +57,7 @@ let sweepChart  = null;
 let sweepAbort  = null;
 let currentSweepN = 1;
 let lastNTaxa   = null; // from most recent /api/run response
+let lastReps    = [];   // representatives from most recent analysis or sweep
 /** Session-only memo cache: param-key → /api/run response. Not serialized in export. */
 const sweepCache = new Map();
 const SWEEP_CACHE_MAX = 20;
@@ -86,6 +87,11 @@ function init() {
       const collapsed = el.classList.toggle("collapsed");
       btn.textContent = collapsed ? "▸" : "▾";
     });
+  });
+
+  document.getElementById("rep-export-btn")?.addEventListener("click", () => {
+    if (!lastReps.length) return;
+    downloadText(lastReps.join("\n") + "\n", "parnas-representatives.txt", "text/plain");
   });
 
   // Sidebar tab switching
@@ -121,9 +127,40 @@ function init() {
     rerenderActive();
   });
 
+  // Reset tree view button
+  document.getElementById("reset-view-btn")?.addEventListener("click", () => {
+    renderer?.resetView();
+    rendererPrior?.resetView();
+    rendererBest?.resetView();
+  });
+
   // Sweep chart
   const sweepCanvas = document.getElementById("sweep-chart");
-  if (sweepCanvas) sweepChart = new SweepChart(sweepCanvas);
+  if (sweepCanvas) {
+    sweepChart = new SweepChart(sweepCanvas);
+
+    // Hover tooltip on sweep canvas
+    const sweepTooltip = document.getElementById("sweep-tooltip");
+    sweepCanvas.addEventListener("mousemove", e => {
+      if (!sweepChart || !sweepTooltip) return;
+      const br = sweepCanvas.getBoundingClientRect();
+      const cssX = e.clientX - br.left;
+      const cssY = e.clientY - br.top;
+      const hit = sweepChart.hitTest(cssX, cssY);
+      if (hit) {
+        sweepTooltip.textContent =
+          `${sweepChart._xTitle}: ${sweepChart._xFmt(hit.x)}  ·  ${sweepChart._yTitle}: ${sweepChart._yFmt(hit.y)}`;
+        sweepTooltip.style.left = hit.px + "px";
+        sweepTooltip.style.top  = hit.py + "px";
+        sweepTooltip.style.display = "block";
+      } else {
+        sweepTooltip.style.display = "none";
+      }
+    });
+    sweepCanvas.addEventListener("mouseleave", () => {
+      if (sweepTooltip) sweepTooltip.style.display = "none";
+    });
+  }
 
   wireRunButton();
   wireExportDialog();
@@ -216,6 +253,7 @@ function wireRunButton() {
       showResults(cached);
       exportBtn.style.display = "flex";
       if (layoutToggle) layoutToggle.style.display = "flex";
+      document.getElementById("reset-view-btn").style.display = "flex";
       const sweepSection = document.getElementById("sweep-section");
       if (sweepSection) sweepSection.style.display = "";
       currentSweepN = n || 1;
@@ -284,6 +322,7 @@ function wireRunButton() {
 
       exportBtn.style.display = "flex";
       if (layoutToggle) layoutToggle.style.display = "flex";
+      document.getElementById("reset-view-btn").style.display = "flex";
 
       // Sweep submenu: visible only for non-cover sample mode
       const showSweep = data.mode === "sample" && !cover;
@@ -634,6 +673,7 @@ function renderSampleReps(data) {
   }
 
   const reps = data.representatives || [];
+  lastReps = reps;
   document.getElementById("rep-label").textContent = `Representatives (${reps.length})`;
   const list = document.getElementById("rep-list");
   list.innerHTML = "";
@@ -858,6 +898,7 @@ async function runNSweep() {
     }
     if (data.n_taxa != null) lastNTaxa = data.n_taxa;
     if (!treeRoot && data.tree) treeRoot = parseNewick(data.tree);
+    if (!renderer && treeRoot) loadAndRender(data);
 
     const curve = data.diversity_curve || [];
     const points = [];
@@ -895,7 +936,7 @@ async function runNSweep() {
       if (nInput) nInput.value = elbowX;
       await sweepTo(elbowX);
     }
-    showOverlay("hidden");
+    hideOverlay();
   } catch (err) {
     if (err.name !== "AbortError") showOverlay("error", "⚠️", err.message);
   } finally {
@@ -991,7 +1032,7 @@ async function runThresholdSweep() {
       setTimeout(() => runBtn.click(), 0);
     }
 
-    showOverlay("hidden");
+    hideOverlay();
   } catch (err) {
     if (err.name !== "AbortError") showOverlay("error", "⚠️", err.message);
   } finally {
@@ -1004,10 +1045,19 @@ async function runThresholdSweep() {
 // ── Sweep figure export ────────────────────────────────────────────────────
 
 function wireSweepExport() {
+  const fmtSel   = document.getElementById("sweep-export-fmt");
+  const themeSel = document.getElementById("sweep-export-theme");
+
+  function updateThemeVisibility() {
+    if (themeSel) themeSel.style.display = fmtSel?.value === "csv" ? "none" : "";
+  }
+  fmtSel?.addEventListener("change", updateThemeVisibility);
+  updateThemeVisibility();
+
   document.getElementById("sweep-export-btn")?.addEventListener("click", () => {
     if (!sweepChart) return;
-    const fmt  = document.getElementById("sweep-export-fmt")?.value || "png";
-    const themeVal = document.getElementById("sweep-export-theme")?.value || "light";
+    const fmt      = fmtSel?.value || "png";
+    const themeVal = themeSel?.value || "light";
     sweepChart.exportFigure(fmt, { dark: themeVal !== "light" });
   });
 }
@@ -1064,7 +1114,7 @@ function openExportDialog() {
     document.getElementById("exp-width").value  = cv.width  || 1200;
     document.getElementById("exp-height").value = cv.height || 800;
   }
-  exportDialog.showModal();
+  exportDialog.show();
 }
 
 function wireExportDialog() {
@@ -1226,6 +1276,7 @@ function loadSession(json) {
   hideOverlay();
   exportBtn.style.display = "flex";
   if (layoutToggle) layoutToggle.style.display = "flex";
+  document.getElementById("reset-view-btn").style.display = "flex";
 
   if (lastData.mode) showResults(lastData);
 }

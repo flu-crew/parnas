@@ -697,15 +697,75 @@ export class TreeRenderer {
     canvas.addEventListener("wheel", e => {
       if (!e.ctrlKey) return;
       e.preventDefault();
-      const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-      // Remember pointer as project-space anchor for the commit step
+      // Exponential scaling proportional to scroll magnitude — much smoother on trackpads
+      const factor = Math.exp(-e.deltaY * 0.003);
       this._zoomOriginP = p.view.viewToProject(new p.Point(e.offsetX, e.offsetY));
-      // Accumulate CSS scale relative to pointer position (cheap GPU composite)
-      this._cssScale *= factor;
+      this._cssScale = Math.min(8, Math.max(0.2, this._cssScale * factor));
       canvas.style.transformOrigin = `${e.offsetX}px ${e.offsetY}px`;
       this._applyTransform();
       this._commitZoom();
     }, { passive: false });
+
+    // Touch pinch-to-zoom
+    let _touchDist = null;
+    let _touchMid  = null;
+
+    function _touchDistance(t) {
+      const dx = t[0].clientX - t[1].clientX;
+      const dy = t[0].clientY - t[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+    function _touchMidpoint(t, rect) {
+      return {
+        x: ((t[0].clientX + t[1].clientX) / 2) - rect.left,
+        y: ((t[0].clientY + t[1].clientY) / 2) - rect.top,
+      };
+    }
+
+    canvas.addEventListener("touchstart", e => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        _touchDist = _touchDistance(e.touches);
+        _touchMid  = _touchMidpoint(e.touches, canvas.getBoundingClientRect());
+        this._zoomOriginP = p.view.viewToProject(new p.Point(_touchMid.x, _touchMid.y));
+      }
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", e => {
+      if (e.touches.length === 2 && _touchDist != null) {
+        e.preventDefault();
+        const newDist = _touchDistance(e.touches);
+        const ratio = newDist / _touchDist;
+        _touchDist = newDist;
+        const mid = _touchMidpoint(e.touches, canvas.getBoundingClientRect());
+        this._zoomOriginP = p.view.viewToProject(new p.Point(mid.x, mid.y));
+        this._cssScale = Math.min(8, Math.max(0.2, this._cssScale * ratio));
+        canvas.style.transformOrigin = `${mid.x}px ${mid.y}px`;
+        this._applyTransform();
+        this._commitZoom();
+      }
+    }, { passive: false });
+
+    canvas.addEventListener("touchend", () => {
+      _touchDist = null;
+      _touchMid  = null;
+    });
+  }
+
+  /** Reset zoom and pan back to the initial fit view. */
+  resetView() {
+    this._cssScale = 1;
+    this._cssPanX  = 0;
+    this._cssPanY  = 0;
+    this._canvas.style.transformOrigin = "center center";
+    this._applyTransform();
+    this._p.activate();
+    this._p.view.zoom = 1;
+    const bounds = this._p.project.activeLayer.bounds;
+    if (bounds && bounds.width > 0) {
+      this._p.view.center = bounds.center;
+    }
+    this._p.view.update();
   }
 
 }

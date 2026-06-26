@@ -82,7 +82,7 @@ export class SweepChart {
   // ── Layout ────────────────────────────────────────────────────────────────
 
   _layout(W, H) {
-    const PAD = { l: 58, r: 18, t: this._title ? 36 : 14, b: 48 };
+    const PAD = { l: 90, r: 18, t: this._title ? 36 : 14, b: 48 };
     const pts  = this._points;
     if (!pts.length) return null;
 
@@ -137,7 +137,7 @@ export class SweepChart {
     // Title
     if (this._title) {
       ctx.fillStyle  = titleClr;
-      ctx.font       = `bold ${Math.round(W * 0.018)}px sans-serif`;
+      ctx.font       = `bold ${Math.round(W * 0.020)}px sans-serif`;
       ctx.textAlign  = "center";
       ctx.textBaseline = "top";
       ctx.fillText(this._title, W / 2, 10);
@@ -151,7 +151,7 @@ export class SweepChart {
     ctx.moveTo(PAD.l, H - PAD.b); ctx.lineTo(W - PAD.r, H - PAD.b);
     ctx.stroke();
 
-    const tickFontSz = Math.max(9, Math.round(W * 0.011));
+    const tickFontSz = Math.max(12, Math.round(W * 0.014));
 
     // Y gridlines + labels
     ctx.fillStyle   = textColor;
@@ -176,7 +176,7 @@ export class SweepChart {
     }
 
     // Axis titles
-    const axTitleSz = Math.max(11, Math.round(W * 0.013));
+    const axTitleSz = Math.max(14, Math.round(W * 0.016));
     ctx.fillStyle = titleClr;
     ctx.font      = `${axTitleSz}px sans-serif`;
     ctx.textAlign = "center";
@@ -185,10 +185,10 @@ export class SweepChart {
 
     // Y axis title (rotated)
     ctx.save();
-    ctx.translate(13, PAD.t + lay.plotH / 2);
+    ctx.translate(Math.round(axTitleSz / 2) + 3, PAD.t + lay.plotH / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.textAlign    = "center";
-    ctx.textBaseline = "top";
+    ctx.textBaseline = "middle";
     ctx.fillText(this._yTitle, 0, 0);
     ctx.restore();
 
@@ -221,15 +221,29 @@ export class SweepChart {
       if (this._elbowAxis === "y") {
         const ey = toY(this._elbowX);
         ctx.beginPath(); ctx.moveTo(PAD.l, ey); ctx.lineTo(W - PAD.r, ey); ctx.stroke();
-        ctx.textAlign    = "left";
-        ctx.textBaseline = "bottom";
-        ctx.fillText(`elbow: ${this._yFmt(this._elbowX)}`, PAD.l + 4, ey - 3);
-      } else {
-        const ex = toX(this._elbowX);
-        ctx.beginPath(); ctx.moveTo(ex, PAD.t); ctx.lineTo(ex, H - PAD.b); ctx.stroke();
-        ctx.textAlign    = "center";
+        const _reps = (() => {
+          if (!this._points.length) return null;
+          let best = this._points[0];
+          for (const p of this._points) {
+            if (Math.abs(p.y - this._elbowX) < Math.abs(best.y - this._elbowX)) best = p;
+          }
+          return best.x;
+        })();
+        const _elbowTxt = _reps != null
+          ? `divergence: ${this._yFmt(this._elbowX)} · ${Math.round(_reps)} reps`
+          : `divergence: ${this._yFmt(this._elbowX)}`;
+        ctx.textAlign    = "right";
         ctx.textBaseline = "top";
-        ctx.fillText(`elbow: ${this._xFmt(this._elbowX)}`, ex, PAD.t + 4);
+        ctx.fillText(_elbowTxt, W - PAD.r - 4, ey + 3);
+      } else {
+        const _ep = this._points.find(p => p.x === this._elbowX)
+          || this._points.reduce((a, b) => Math.abs(b.x - this._elbowX) < Math.abs(a.x - this._elbowX) ? b : a);
+        const ey = toY(_ep.y);
+        ctx.beginPath(); ctx.moveTo(PAD.l, ey); ctx.lineTo(W - PAD.r, ey); ctx.stroke();
+        const _nTxt = `n = ${this._xFmt(this._elbowX)} · ${this._yFmt(_ep.y)}`;
+        ctx.textAlign    = "right";
+        ctx.textBaseline = "top";
+        ctx.fillText(_nTxt, W - PAD.r - 4, ey + 3);
       }
     }
 
@@ -261,6 +275,28 @@ export class SweepChart {
                    .getPropertyValue("--pico-card-background-color").trim()
                  || (dark ? "#1e1e2e" : "#ffffff");
     this._renderFigure(ctx, W, H, { dark, background: bg });
+    // Cache layout for hitTest (recompute from last drawn dims)
+    this._lastLayout = this._layout(W, H);
+    this._lastW = W;
+    this._lastH = H;
+  }
+
+  /**
+   * Find the nearest data point to canvas-CSS coords (cssX, cssY).
+   * Returns { x, y, px, py } or null if no points within HIT_R pixels.
+   */
+  hitTest(cssX, cssY) {
+    const lay = this._lastLayout;
+    if (!lay || !this._points.length) return null;
+    const { toX, toY } = lay;
+    const HIT_R = 20; // pixels
+    let best = null, bestD2 = HIT_R * HIT_R;
+    for (const pt of this._points) {
+      const dx = toX(pt.x) - cssX, dy = toY(pt.y) - cssY;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD2) { bestD2 = d2; best = { x: pt.x, y: pt.y, px: toX(pt.x), py: toY(pt.y) }; }
+    }
+    return best;
   }
 
   // ── SVG export ────────────────────────────────────────────────────────────
@@ -280,8 +316,8 @@ export class SweepChart {
     const axisClr   = dark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)";
 
     const e = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-    const tickFontSz = Math.max(9, Math.round(W * 0.011));
-    const axTitleSz  = Math.max(11, Math.round(W * 0.013));
+    const tickFontSz = Math.max(12, Math.round(W * 0.014));
+    const axTitleSz  = Math.max(14, Math.round(W * 0.016));
     const dotR       = Math.max(2.5, W * 0.003);
 
     let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">\n`;
@@ -289,7 +325,7 @@ export class SweepChart {
 
     // Title
     if (this._title) {
-      const tsz = Math.round(W * 0.018);
+      const tsz = Math.round(W * 0.020);
       s += `<text x="${W/2}" y="${10+tsz}" text-anchor="middle" font-size="${tsz}" font-weight="bold" fill="${e(titleClr)}" font-family="sans-serif">${e(this._title)}</text>\n`;
     }
 
@@ -312,7 +348,7 @@ export class SweepChart {
 
     // Axis titles
     s += `<text x="${PAD.l+lay.plotW/2}" y="${H-4}" text-anchor="middle" dominant-baseline="auto" font-size="${axTitleSz}" fill="${e(titleClr)}" font-family="sans-serif">${e(this._xTitle)}</text>\n`;
-    s += `<text x="0" y="0" text-anchor="middle" font-size="${axTitleSz}" fill="${e(titleClr)}" font-family="sans-serif" transform="translate(13,${PAD.t+lay.plotH/2}) rotate(-90)">${e(this._yTitle)}</text>\n`;
+    s += `<text x="0" y="0" text-anchor="middle" dominant-baseline="middle" font-size="${axTitleSz}" fill="${e(titleClr)}" font-family="sans-serif" transform="translate(${Math.round(axTitleSz/2)+3},${PAD.t+lay.plotH/2}) rotate(-90)">${e(this._yTitle)}</text>\n`;
 
     // Curve
     const ptStr = pts.map(p => `${toX(p.x).toFixed(1)},${toY(p.y).toFixed(1)}`).join(" ");
@@ -329,11 +365,25 @@ export class SweepChart {
       if (this._elbowAxis === "y") {
         const ey = toY(this._elbowX).toFixed(1);
         s += `<line x1="${PAD.l}" y1="${ey}" x2="${W-PAD.r}" y2="${ey}" stroke="${e(elbowClr)}" stroke-width="${sw}"/>\n`;
-        s += `<text x="${PAD.l+4}" y="${toY(this._elbowX)-3}" text-anchor="start" dominant-baseline="auto" font-size="${tickFontSz+1}" font-weight="bold" fill="${e(elbowClr)}" font-family="sans-serif">elbow: ${e(this._yFmt(this._elbowX))}</text>\n`;
+        const _svgReps = (() => {
+          if (!this._points.length) return null;
+          let best = this._points[0];
+          for (const p of this._points) {
+            if (Math.abs(p.y - this._elbowX) < Math.abs(best.y - this._elbowX)) best = p;
+          }
+          return best.x;
+        })();
+        const _svgTxt = _svgReps != null
+          ? `divergence: ${this._yFmt(this._elbowX)} · ${Math.round(_svgReps)} reps`
+          : `divergence: ${this._yFmt(this._elbowX)}`;
+        s += `<text x="${W-PAD.r-4}" y="${(toY(this._elbowX)+3).toFixed(1)}" text-anchor="end" dominant-baseline="hanging" font-size="${tickFontSz+1}" font-weight="bold" fill="${e(elbowClr)}" font-family="sans-serif">${e(_svgTxt)}</text>\n`;
       } else {
-        const ex = toX(this._elbowX).toFixed(1);
-        s += `<line x1="${ex}" y1="${PAD.t}" x2="${ex}" y2="${H-PAD.b}" stroke="${e(elbowClr)}" stroke-width="${sw}"/>\n`;
-        s += `<text x="${ex}" y="${PAD.t+4}" text-anchor="middle" dominant-baseline="hanging" font-size="${tickFontSz+1}" font-weight="bold" fill="${e(elbowClr)}" font-family="sans-serif">elbow: ${e(this._xFmt(this._elbowX))}</text>\n`;
+        const _ep2 = this._points.find(p => p.x === this._elbowX)
+          || this._points.reduce((a, b) => Math.abs(b.x - this._elbowX) < Math.abs(a.x - this._elbowX) ? b : a);
+        const ey2 = toY(_ep2.y).toFixed(1);
+        s += `<line x1="${PAD.l}" y1="${ey2}" x2="${W-PAD.r}" y2="${ey2}" stroke="${e(elbowClr)}" stroke-width="${sw}"/>\n`;
+        const _nSvgTxt = `n = ${e(this._xFmt(this._elbowX))} · ${e(this._yFmt(_ep2.y))}`;
+        s += `<text x="${W-PAD.r-4}" y="${(parseFloat(ey2)+3).toFixed(1)}" text-anchor="end" dominant-baseline="hanging" font-size="${tickFontSz+1}" font-weight="bold" fill="${e(elbowClr)}" font-family="sans-serif">${_nSvgTxt}</text>\n`;
       }
     }
 
@@ -351,6 +401,14 @@ export class SweepChart {
 
   exportFigure(fmt, { dark = false } = {}) {
     const W = 1200, H = 750;
+    if (fmt === "csv") {
+      const rows = [
+        `${this._xTitle},${this._yTitle}`,
+        ...this._points.map(p => `${p.x},${p.y}`),
+      ].join("\n") + "\n";
+      downloadText(rows, "parnas-sweep.csv", "text/csv");
+      return;
+    }
     if (fmt === "svg") {
       downloadText(this.toSVG(W, H, { dark }), "parnas-sweep.svg", "image/svg+xml");
       return;
