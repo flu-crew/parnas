@@ -31,6 +31,9 @@ dependencies = [
     "phylo-treetime>=0.9.4",
     "flask>=2.0",
     "scipy",
+    "psutil>=7.2.2",
+    "requests>=2.34.2",
+    "matplotlib>=3.10.8",
 ]
 
 [project.optional-dependencies]

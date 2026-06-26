@@ -48,7 +48,7 @@ def _match_taxa(tree: Tree, regex: str):
         return []
     try:
         regex_compiled = re.compile(regex)
-        return [t.label for t in tree.taxon_namespace if regex_compiled.match(t.label)]
+        return [t.label for t in tree.taxon_namespace if regex_compiled.search(t.label)]
     except re.error as exc:
         raise ValueError(f"Invalid regex '{regex}': {exc}") from exc
 

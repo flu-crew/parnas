@@ -4,6 +4,8 @@
 *.aln
 *.fasta
 *.fna
+outputs/
+manuscript/
 
 # TreeTime output
 treetime*
