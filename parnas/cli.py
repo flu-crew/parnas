@@ -127,6 +127,31 @@ def save_clusters(clusters_path: str, tree: Tree, centers: List[str], prior_cent
 
 
 def run_parnas_cli():
+    # Route "parnas server [--ip ...] [--port ...]" to the web server.
+    if len(sys.argv) > 1 and sys.argv[1] == "server":
+        import argparse as _ap
+        _sp = _ap.ArgumentParser(
+            prog="parnas server",
+            description="Start the PARNAS web UI server.",
+        )
+        _sp.add_argument("subcommand")  # consume the positional "server"
+        _sp.add_argument(
+            "--ip",
+            type=str,
+            default="localhost",
+            help="IP address to listen on (default: localhost)",
+        )
+        _sp.add_argument(
+            "--port",
+            type=int,
+            default=8080,
+            help="Port to listen on (default: 8080)",
+        )
+        _args = _sp.parse_args()
+        from parnas.server import run_server
+        run_server(_args.ip, _args.port)
+        return
+
     args, query_tree, n, radius, is_binary, prior_centers, excluded_taxa, obj_excluded, fully_excluded, taxa_weights = parse_and_validate()
 
     # Binarize the query tree:

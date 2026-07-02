@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "parnas"
+version = "0.1.7"
+description = "Representative taxon sampling from phylogenetic trees"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Alexey Markin", email = "alex.markin57@gmail.com" },
+    { name = "Sanket Wagle" },
+    { name = "Siddhant Grover" },
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy>=1.17",
+    "numba>=0.57.0",
+    "biopython>=1.67",
+    "dendropy>=4.5.0",
+    "phylo-treetime>=0.9.4",
+    "flask>=2.0",
+    "scipy",
+    "psutil>=7.2.2",
+    "requests>=2.34.2",
+    "matplotlib>=3.10.8",
+]
+
+[project.optional-dependencies]
+desktop = ["pyinstaller>=6"]
+
+[project.urls]
+Homepage = "https://github.com/flu-crew/parnas"
+
+[project.scripts]
+parnas = "parnas.cli:run_parnas_cli"
+
+[tool.setuptools.packages.find]
+include = ["parnas", "parnas.*"]
+
+[tool.setuptools.package-data]
+parnas = ["web/*.html"]
