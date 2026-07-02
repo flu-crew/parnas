@@ -50,3 +50,7 @@ misc/
 
 # Local working notes (not shipped)
 parnas/web/OPTIMIZATION.md
+
+# Application-study datasets (tracked despite global fasta/aln ignores)
+!data/
+!data/*

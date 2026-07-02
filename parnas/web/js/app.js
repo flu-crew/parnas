@@ -14,7 +14,7 @@ import { leaves }                             from "./treemodel.js";
 import { rectangularLayout, cladogramLayout, radialLayout } from "./layout.js";
 import { TreeRenderer }                       from "./renderer.js";
 import {
-  emptyAnnotations, setClusterColors, setLegend, setLegendCaption, deserialise,
+  emptyAnnotations, setClusterColors, setLegend, deserialise,
 }                                             from "./annotations.js";
 import {
   buildAnnotatedNexus, buildSessionJson,
@@ -115,8 +115,7 @@ function init() {
 
   // Export button opens dialog
   exportBtn?.addEventListener("click", () => {
-    if (rendererPrior && rendererBest) exportEvaluateImage();
-    else openExportDialog();
+    openExportDialog();
   });
 
   // Layout toggle (Phylogram ⇄ Cladogram)
@@ -385,8 +384,6 @@ function loadAndRender(data) {
       .filter(r => data.colors_prior?.[r])
       .map(r => ({ label: r, color: data.colors_prior[r] }));
     if (legendPrior.length) annotationsPrior = setLegend(annotationsPrior, legendPrior);
-    if (data.prior_diversity != null)
-      annotationsPrior = setLegendCaption(annotationsPrior, "Prior diversity: " + data.prior_diversity + "%");
 
     annotationsBest = emptyAnnotations();
     if (data.colors_best) annotationsBest = setClusterColors(annotationsBest, data.colors_best);
@@ -394,8 +391,6 @@ function loadAndRender(data) {
       .filter(r => data.colors_best?.[r])
       .map(r => ({ label: r, color: data.colors_best[r] }));
     if (legendBest.length) annotationsBest = setLegend(annotationsBest, legendBest);
-    if (data.best_diversity != null)
-      annotationsBest = setLegendCaption(annotationsBest, "Best possible: " + data.best_diversity + "%");
 
     renderOpts.repsSet   = new Set([...priorReps, ...bestReps]);
     renderOpts.repColors = {};
@@ -621,7 +616,7 @@ function showResults(data) {
     if (data.mode === "evaluate_cover") {
       statsEl.appendChild(makeStat("Taxa covered within radius", data.coverage_pct + "%"));
     } else {
-      if (data.prior_diversity != null)
+      if (data.prior_diversity != null && data.prior_diversity > 0)
         statsEl.appendChild(makeStat("Prior diversity",   data.prior_diversity + "%"));
       if (data.best_diversity != null)
         statsEl.appendChild(makeStat("Best possible",     data.best_diversity  + "%"));
@@ -1067,40 +1062,90 @@ function wireSweepExport() {
 let exportFormat = "svg";
 let exportTheme  = "dark";
 
-function exportEvaluateImage() {
+/** Panel canvases + composite layout constants for the evaluate-mode dual-tree export. */
+function evaluateCanvasDims() {
   const cvPrior = document.getElementById("tree-canvas-prior");
   const cvBest  = document.getElementById("tree-canvas-best");
-  if (!cvPrior || !cvBest) return;
+  if (!cvPrior || !cvBest) return null;
+  const GAP = 12, LABEL_H = 22;
+  return {
+    cvPrior, cvBest, GAP, LABEL_H,
+    w: cvPrior.width + GAP + cvBest.width,
+    h: LABEL_H + Math.max(cvPrior.height, cvBest.height),
+  };
+}
 
-  const dark   = document.documentElement.getAttribute("data-theme") !== "light";
-  const bgColor = dark ? "#0d1117" : "#f5f7fa";
+/** Composite the evaluate-mode prior/best panels into one themed export, honoring format/theme/DPI. */
+async function exportEvaluateComposite(fmt, theme, width, height, dpi) {
+  const dims = evaluateCanvasDims();
+  if (!dims) return;
+  const { cvPrior, cvBest, GAP, LABEL_H } = dims;
+  const dark      = theme !== "light";
+  const bgColor   = dark ? "#0d1117" : "#f5f7fa";
   const textColor = dark ? "#e6edf3" : "#24292f";
-  const GAP     = 12;
-  const LABEL_H = 22;
-  const FONT    = "bold 11px 'Outfit', sans-serif";
 
-  const w = cvPrior.width + GAP + cvBest.width;
-  const h = LABEL_H + Math.max(cvPrior.height, cvBest.height);
+  if (fmt === "svg") {
+    const svgPrior = rendererPrior.exportSvgWithTheme(dark);
+    const svgBest  = rendererBest.exportSvgWithTheme(dark);
+    const wPrior = cvPrior.width, wBest = cvBest.width;
+    const W = wPrior + GAP + wBest, H = dims.h;
+    const combined =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
+      `<rect width="${W}" height="${H}" fill="${bgColor}"/>` +
+      `<text x="${wPrior / 2}" y="14" text-anchor="middle" font-family="Outfit, sans-serif" font-weight="bold" font-size="11" fill="${textColor}">Prior Representatives</text>` +
+      `<text x="${wPrior + GAP + wBest / 2}" y="14" text-anchor="middle" font-family="Outfit, sans-serif" font-weight="bold" font-size="11" fill="${textColor}">Best Coverage</text>` +
+      `<g transform="translate(0,${LABEL_H})">${svgPrior}</g>` +
+      `<g transform="translate(${wPrior + GAP},${LABEL_H})">${svgBest}</g>` +
+      `</svg>`;
+    downloadBlob(new Blob([combined], { type: "image/svg+xml" }), "parnas-evaluate.svg");
+    return;
+  }
 
+  // Raster formats (png/jpg/eps): re-render both panels at the requested theme/DPI.
+  const scale  = dpi / 96;
+  const wPrior = Math.round(cvPrior.width  * scale);
+  const hPrior = Math.round(cvPrior.height * scale);
+  const wBest  = Math.round(cvBest.width   * scale);
+  const hBest  = Math.round(cvBest.height  * scale);
+  const labelH = Math.round(LABEL_H * scale);
+  const gap    = Math.round(GAP * scale);
+
+  const [blobPrior, blobBest] = await Promise.all([
+    rendererPrior.exportPngWithTheme(dark, bgColor, wPrior, hPrior, "png"),
+    rendererBest.exportPngWithTheme(dark, bgColor, wBest, hBest, "png"),
+  ]);
+  const [bmpPrior, bmpBest] = await Promise.all([
+    createImageBitmap(blobPrior), createImageBitmap(blobBest),
+  ]);
+
+  const W = wPrior + gap + wBest;
+  const H = labelH + Math.max(hPrior, hBest);
   const off = document.createElement("canvas");
-  off.width = w; off.height = h;
+  off.width = W; off.height = H;
   const ctx = off.getContext("2d");
-
   ctx.fillStyle = bgColor;
-  ctx.fillRect(0, 0, w, h);
-
+  ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = textColor;
-  ctx.font = FONT;
+  ctx.font = `bold ${Math.round(11 * scale)}px 'Outfit', sans-serif`;
   ctx.textAlign = "center";
-  ctx.fillText("Prior Representatives", cvPrior.width / 2, 14);
-  ctx.fillText("Best Coverage", cvPrior.width + GAP + cvBest.width / 2, 14);
+  ctx.fillText("Prior Representatives", wPrior / 2, 14 * scale);
+  ctx.fillText("Best Coverage", wPrior + gap + wBest / 2, 14 * scale);
+  ctx.drawImage(bmpPrior, 0, labelH);
+  ctx.drawImage(bmpBest,  wPrior + gap, labelH);
 
-  ctx.drawImage(cvPrior, 0, LABEL_H);
-  ctx.drawImage(cvBest,  cvPrior.width + GAP, LABEL_H);
+  if (fmt === "eps") {
+    const epsStr = canvasToEps(off, width, height);
+    downloadText(epsStr, "parnas-evaluate.eps", "application/postscript");
+    return;
+  }
 
-  off.toBlob(blob => {
-    if (blob) downloadBlob(blob, "parnas-evaluate.png");
-  }, "image/png");
+  const mime = fmt === "jpg" ? "image/jpeg" : "image/png";
+  await new Promise(resolve => {
+    off.toBlob(blob => {
+      if (blob) downloadBlob(blob, `parnas-evaluate.${fmt}`);
+      resolve();
+    }, mime, 0.95);
+  });
 }
 
 function openExportDialog() {
@@ -1108,11 +1153,29 @@ function openExportDialog() {
   document.querySelectorAll("#exp-theme-group .exp-fmt-btn").forEach(b => {
     b.classList.toggle("active", b.dataset.exptheme === exportTheme);
   });
-  // Pre-fill height from actual canvas so export isn't clipped
-  const cv = document.getElementById("tree-canvas");
-  if (cv) {
-    document.getElementById("exp-width").value  = cv.width  || 1200;
-    document.getElementById("exp-height").value = cv.height || 800;
+
+  const isEvaluate = !!(rendererPrior && rendererBest);
+  // NEXUS export is a single-tree annotation format; the evaluate composite has two.
+  const nexBtn = document.querySelector('[data-fmt="nex"]');
+  if (nexBtn) nexBtn.style.display = isEvaluate ? "none" : "";
+  if (isEvaluate && exportFormat === "nex") {
+    exportFormat = "svg";
+    document.querySelectorAll("[data-fmt]").forEach(b => b.classList.toggle("active", b.dataset.fmt === "svg"));
+  }
+
+  // Pre-fill width/height from the actual rendered surface so export isn't clipped
+  if (isEvaluate) {
+    const dims = evaluateCanvasDims();
+    if (dims) {
+      document.getElementById("exp-width").value  = dims.w;
+      document.getElementById("exp-height").value = dims.h;
+    }
+  } else {
+    const cv = document.getElementById("tree-canvas");
+    if (cv) {
+      document.getElementById("exp-width").value  = cv.width  || 1200;
+      document.getElementById("exp-height").value = cv.height || 800;
+    }
   }
   exportDialog.show();
 }
@@ -1129,11 +1192,14 @@ function wireExportDialog() {
       const isSvg = exportFormat === "svg" || exportFormat === "nex";
       document.getElementById("exp-dpi-field").style.opacity = isSvg ? "0.4" : "1";
       document.getElementById("exp-dpi").disabled = isSvg;
-      // Lock height field for raster: always use canvas height
+      // Lock height field for raster: always use the rendered surface's height
       const hField = document.getElementById("exp-height");
-      const cvEl   = document.getElementById("tree-canvas");
-      if (!isSvg && cvEl) {
-        hField.value    = cvEl.height;
+      const isEvaluate = !!(rendererPrior && rendererBest);
+      const lockedHeight = isEvaluate
+        ? evaluateCanvasDims()?.h
+        : document.getElementById("tree-canvas")?.height;
+      if (!isSvg && lockedHeight) {
+        hField.value    = lockedHeight;
         hField.readOnly = true;
         hField.style.opacity = "0.5";
       } else {
@@ -1152,13 +1218,14 @@ function wireExportDialog() {
   });
 
   document.getElementById("exp-download-btn")?.addEventListener("click", async () => {
-    if (!treeRoot) return;
+    const isEvaluate = !!(rendererPrior && rendererBest);
+    if (!isEvaluate && !treeRoot) return;
     const cv     = document.getElementById("tree-canvas");
     const width  = Math.max(100, parseInt(document.getElementById("exp-width").value)  || 1200);
-    // Always use actual canvas pixel height for raster exports to avoid clipping
+    // Always use actual rendered-surface pixel height for raster exports to avoid clipping
     const isRaster = exportFormat === "png" || exportFormat === "jpg" || exportFormat === "eps";
     const height = isRaster
-      ? (cv?.height || Math.max(100, parseInt(document.getElementById("exp-height").value) || 800))
+      ? ((isEvaluate ? evaluateCanvasDims()?.h : cv?.height) || Math.max(100, parseInt(document.getElementById("exp-height").value) || 800))
       : Math.max(100, parseInt(document.getElementById("exp-height").value) || 800);
     const dpi    = Math.max(72,  parseInt(document.getElementById("exp-dpi").value)    || 96);
     const bgColor = exportTheme === "light" ? "#f5f7fa" : "#0d1117";
@@ -1167,7 +1234,10 @@ function wireExportDialog() {
     dlBtn.textContent = "Exporting…";
 
     try {
-      if (exportFormat === "nex") {
+      if (isEvaluate) {
+        await exportEvaluateComposite(exportFormat, exportTheme, width, height, dpi);
+
+      } else if (exportFormat === "nex") {
         const nexus = buildAnnotatedNexus(treeRoot, annotations, lastData || {});
         downloadText(nexus, "parnas-tree.nex", "text/plain");
 

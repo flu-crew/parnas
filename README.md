@@ -157,6 +157,18 @@ parnas -t genbank_H1N1pdm_USA.rooted.tre --cover --radius 0.005 --subtree H1N1pd
 ```
 This results in a tab-delimited file `r005.clusters.tab`, where taxa beloning to the same cluster are labeled by the same cluster index.
 
+## Web UI ##
+PARNAS ships an interactive web interface for exploring representative
+selection, sweeps, and tree visualization. Launch it with:
+
+`parnas server [--ip IP] [--port PORT]`
+
+- `--ip`   IP address to listen on (default: localhost)
+- `--port` Port to listen on (default: 8080)
+
+Then open http://localhost:8080 in a browser.
+Requires Flask (`pip install flask`).
+
 ## PARNAS usage ##
 
 `parnas -t TREE [-n SAMPLES] [other options]`
